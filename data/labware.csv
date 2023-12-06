@@ -1,0 +1,11 @@
+name,id,cols,rows,nwells,type,img
+Bio-Rad 96 Well Plate 200 µL PCR,biorad_96_wellplate_200ul_pcr,12,8,96,plate,biorad_96_wellplate_200ul_pcr_photo_three_quarters.5671be85d490dca0a3094e5026ab1966.jpg
+Opentrons Tough 96 Well Plate 200 µL PCR Full Skirt,opentrons_96_wellplate_200ul_pcr_full_skirt,12,8,96,plate,opentrons_96_wellplate_200ul_pcr_full_skirt.62eee137897063cd29ef02d8c2e98d8f.jpg
+Corning 12 Well Plate 6.9 mL Flat,corning_12_wellplate_6.9ml_flat,4,3,12,plate,corning_12_wellplate_6.9ml_flat_photo_three_quarters.5c7b7f36608d7c1e35749da6e1e70655.jpg
+Corning 24 Well Plate 3.4 mL Flat,corning_24_wellplate_3.4ml_flat,6,4,24,plate,corning_24_wellplate_3.4ml_flat_photo_three_quarters.abc99230edabe4b17d8f02bfa30548ec.jpg
+Corning 48 Well Plate 1.6 mL Flat,corning_48_wellplate_1.6ml_flat,8,6,48,plate,corning_48_wellplate_1.6ml_flat_photo_three_quarters.3306df9c9b24e387ceb010db9076c27d.jpg
+Bio-Rad 384 Well Plate 50 µL,biorad_384_wellplate_50ul,24,16,384,plate,biorad_384_wellplate_50ul.556b55def84c1f11a9d4727d6c4dd6eb.jpg
+Opentrons 24 Tube Rack with Eppendorf 1.5 mL Safe-Lock Snapcap,opentrons_24_tuberack_eppendorf_1.5ml_safelock_snapcap,6,4,24,rack,opentrons_24_tuberack_side_view.e35eb8f412f6abbe3d936c074bccdd0b.jpg
+Opentrons 24 Well Aluminum Block with Generic 2 mL Screwcap,opentrons_24_aluminumblock_generic_2ml_screwcap,6,4,24,block,opentrons_24_aluminumblock_side_view.1e318a065d2c574012b2443e6b3d7fa9.jpg
+Opentrons 24 Well Aluminum Block with NEST 0.5 mL Screwcap,opentrons_24_aluminumblock_nest_0.5ml_screwcap,6,4,24,block,opentrons_24_aluminumblock_side_view.1e318a065d2c574012b2443e6b3d7fa9.jpg
+Opentrons 15 Tube Rack with Falcon 15 mL Conical,opentrons_15_tuberack_falcon_15ml_conical,5,3,15,rack,opentrons_15_tuberack_side_view.e474b6ce1755364e102388cdf564b71b.jpg
