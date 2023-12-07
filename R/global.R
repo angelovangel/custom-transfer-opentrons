@@ -1,5 +1,8 @@
+library(vroom)
+library(dplyr)
 
 labware <- vroom('data/labware.csv') %>%
+  arrange(name) %>%
   mutate(
     img_icon = sprintf("<img src='%s' width=30px><div class='jhr'>%s</div></img>", img, id)
   )
