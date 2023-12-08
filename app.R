@@ -46,7 +46,7 @@ tab1 <- fluidRow(
         column(6,
                pickerInput(
                  'source_labware', 'Source labware', 
-                 choices = select_labware
+                 choices = select_labware, selected = 'biorad_96_wellplate_200ul_pcr'
                  #choicesOpt = list(content = labware$img_icon)
                  )
                #imageOutput('source_img')
@@ -54,15 +54,18 @@ tab1 <- fluidRow(
         column(6, 
                pickerInput(
                  'dest_labware', 'Destination labware', 
-                 choices = select_labware
+                 choices = select_labware, selected = 'biorad_96_wellplate_200ul_pcr'
                  #choicesOpt = list(content = labware$img_icon)
                 )
                #imageOutput('dest_img', width = 200, height = 200)
                )
       ),
       fluidRow(
-        column(6, rHandsontableOutput('hot')),
-        column(6,
+        column(3,
+               tags$p('Pipetting scheme'),
+               rHandsontableOutput('hot')
+               ),
+        column(9,
                tags$p('Source preview'),
                reactableOutput('source_plate'),
                tags$p('Destination preview'),
@@ -71,14 +74,31 @@ tab1 <- fluidRow(
       )
   )
 )
+
+tab2 <- fluidRow(
+  box(width = 12, status = "warning", solidHeader = FALSE, title = "Opentrons protocol preview", collapsible = F,
+      verbatimTextOutput('protocol_preview')
+  )
+)
+
+sidebar <- dashboardSidebar(
+  selectizeInput('pipetting_type', 'Pipetting type',
+                 choices = c('transfer', 'distribute', 'consolidate'), 
+                 selected = 'transfer', multiple = F),
+  selectizeInput('left_pipette', 'Lef pipette', choices = c('p20_single_gen2', 'p300_single_gen2')),
+  selectizeInput('right_pipette', 'Right pipette', choices = c('p20_multi_gen2', 'p300_multi_gen2'))
+  
+)
+
 ui = dashboardPage(
         skin = 'red',
-        header = dashboardHeader(),
-        sidebar = dashboardSidebar(),
+        header = dashboardHeader(title = 'Simple OT2 protocol'),
+        sidebar = sidebar,
         body = dashboardBody(
           useShinyjs(),
           tabsetPanel(
-            tabPanel(title = "Enter data", icon = icon("list"), tab1)
+            tabPanel(title = "Enter data", icon = icon("list"), tab1),
+            tabPanel(title = "Opentrons script preview", icon = icon('code'), tab2)
           )
         )
       )
@@ -121,6 +141,48 @@ server = function(input, output, session) {
       )
   })
   
+  # CORE functionality
+  myvalues <- reactive({
+    hot_table <- as_tibble(hot_to_r(input$hot))
+    swells <- hot_table$source_well %>% str_replace_na(replacement = ' ')
+    dwells <- hot_table$dest_well %>% str_replace_na(replacement = ' ')
+    vols <-str_replace_na(hot_table$vol, '0')
+    
+    c(
+      str_flatten(swells, collapse = "','"),
+      str_flatten(dwells, collapse = "','"),
+      str_flatten(vols, collapse = ", ")
+    )
+  })
+  
+  myprotocol <- reactive({
+    str_replace(string = protocol_template, 
+                pattern = 'source_wells =.*', 
+                replacement = paste0("source_wells = ['", myvalues()[1], "']")
+                ) %>%
+    str_replace(pattern = 'dest_wells =.*', 
+                replacement = paste0("dest_wells = ['", myvalues()[2], "']")
+                ) %>%
+    str_replace(pattern = 'volumes =.*', 
+                replacement = paste0("volumes = [", myvalues()[3], "]") 
+                ) %>%
+    str_replace(pattern = "pipetting_type = .*", 
+                replacement = paste0("pipetting_type = ", "'", input$pipetting_type, "'")
+                ) %>%
+    str_replace(pattern = "dest_type = .*", 
+                replacement = paste0("dest_type = ", "'", input$dest_labware, "'")
+                ) %>%
+      str_replace(pattern = "source_type = .*", 
+                  replacement = paste0("source_type = ", "'", input$source_labware, "'")
+      ) %>%
+      str_replace(pattern = "right_mount = .*", 
+                  replacement = paste0("right_mount = ", "'", input$right_pipette, "'")
+      ) %>%
+      str_replace(pattern = "left_mount = .*", 
+                  replacement = paste0("left_mount = ", "'", input$left_pipette, "'")
+      )
+  })
+  
   # Outputs
   output$source_plate <- renderReactable({
     reactable(
@@ -152,9 +214,33 @@ server = function(input, output, session) {
     )
   })
   
+  # renders first column well in grey for better plate overview
+  rendergrey <- function() {
+    "
+    function(instance, td, row, col, prop, value, cellProperties) {
+      Handsontable.renderers.TextRenderer.apply(this, arguments);
+      tbl = this.HTMLWidgets.widgets[0]
+      
+      if (/^A/.test(value)) {
+        td.style.color = '#2980B9';
+        td.style.background = '#F2F4F4';
+      }
+      
+      return td;
+  }"
+  }
+  
   output$hot <- renderRHandsontable({
-    rhandsontable(hot())
+    rhandsontable(hot()) %>%
+        hot_col('source_well', readOnly = F, type = 'dropdown', source = unique(hot()$source_well), renderer = rendergrey()) %>%
+        hot_col('dest_well', type = 'dropdown', source = unique(hot()$dest_well), renderer = rendergrey()) %>%
+        hot_col('vol', type = 'numeric', allowInvalid = F)
   })
+  
+  output$protocol_preview <- renderPrint({
+    write(myprotocol(), file = "")
+  })
+  
 }
 
 shinyApp(ui, server)
