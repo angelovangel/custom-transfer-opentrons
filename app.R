@@ -29,13 +29,21 @@ make_plate <- function(cols, rows) {
 }
 
 # used to generate main table - hot
+
 make_hot <- function(scols, srows, dcols, drows) {
   swells <- scols * srows
   dwells <- dcols * drows
-  
+  # # fill with NA, let the user decide how to fill shorter labware
+  source_well <- wells_colwise(scols, srows)
+  dest_well <- wells_colwise(dcols, drows)
+  if (swells > dwells) {
+    length(dest_well) <- length(source_well) 
+  } else if (swells < dwells) {
+    length(source_well) <- length(dest_well)
+  }
   data.frame(
-    source_well = wells_colwise(scols, srows),
-    dest_well = wells_colwise(dcols, drows),
+    source_well = source_well,
+    dest_well = dest_well,
     vol = 0
   )
 }
@@ -82,6 +90,9 @@ tab2 <- fluidRow(
 )
 
 sidebar <- dashboardSidebar(
+  selectizeInput('active_pipet', 'Active pipet', 
+                 choices = c('Left (single channel)', 'Right (multi channel)'), 
+                 selected = 'Left (single channel)'),
   selectizeInput('pipetting_type', 'Pipetting type',
                  choices = c('transfer', 'distribute', 'consolidate'), 
                  selected = 'transfer', multiple = F),
@@ -178,9 +189,22 @@ server = function(input, output, session) {
       str_replace(pattern = "right_mount = .*", 
                   replacement = paste0("right_mount = ", "'", input$right_pipette, "'")
       ) %>%
+      str_replace(pattern = "right_tips = .*", 
+                  replacement = if_else(
+                    input$right_pipette == 'p20_multi_gen2', 
+                    "right_tips = 'opentrons_96_filtertiprack_20ul'", 
+                    "right_tips = 'opentrons_96_filtertiprack_200ul'")
+      ) %>%
       str_replace(pattern = "left_mount = .*", 
                   replacement = paste0("left_mount = ", "'", input$left_pipette, "'")
+      ) %>%
+      str_replace(pattern = "left_tips = .*", 
+                  replacement = if_else(
+                    input$left_pipette == 'p20_single_gen2', 
+                    "left_tips = 'opentrons_96_filtertiprack_20ul'", 
+                    "left_tips = 'opentrons_96_filtertiprack_200ul'")
       )
+    
   })
   
   # Outputs
@@ -232,8 +256,12 @@ server = function(input, output, session) {
   
   output$hot <- renderRHandsontable({
     rhandsontable(hot()) %>%
-        hot_col('source_well', readOnly = F, type = 'dropdown', source = unique(hot()$source_well), renderer = rendergrey()) %>%
-        hot_col('dest_well', type = 'dropdown', source = unique(hot()$dest_well), renderer = rendergrey()) %>%
+        hot_col('source_well', readOnly = F, type = 'dropdown',
+                source = unique(hot()$source_well), 
+                renderer = rendergrey()) %>%
+        hot_col('dest_well', type = 'dropdown', 
+                source = unique(hot()$dest_well), 
+                renderer = rendergrey()) %>%
         hot_col('vol', type = 'numeric', allowInvalid = F)
   })
   

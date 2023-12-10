@@ -477,15 +477,20 @@
     "plater": {
       "Package": "plater",
       "Version": "1.0.4",
-      "Source": "Repository",
-      "Repository": "CRAN",
+      "Source": "GitHub",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteUsername": "angelovangel",
+      "RemoteRepo": "plater",
+      "RemoteRef": "master",
+      "RemoteSha": "48ffa800c141a80894d31aeada1371bfaabbd927",
       "Requirements": [
         "R",
         "dplyr",
         "rlang",
         "utils"
       ],
-      "Hash": "29df442d1d18ef670323226f73a069ca"
+      "Hash": "595e400b76f774cafea10cce92164aca"
     },
     "prettyunits": {
       "Package": "prettyunits",
