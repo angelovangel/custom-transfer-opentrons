@@ -98,7 +98,8 @@ sidebar <- dashboardSidebar(
                  selected = 'transfer', multiple = F),
   selectizeInput('newtip', 'New tip', choices = c('always', 'once'), selected = 'always'),
   selectizeInput('left_pipette', 'Lef pipette', choices = c('p20_single_gen2', 'p300_single_gen2')),
-  selectizeInput('right_pipette', 'Right pipette', choices = c('p20_multi_gen2', 'p300_multi_gen2'))
+  selectizeInput('right_pipette', 'Right pipette', choices = c('p20_multi_gen2', 'p300_multi_gen2')),
+  downloadButton('download_script', 'Download script', style = 'margin-left:15px; margin-top:15px')
   
 )
 
@@ -278,6 +279,21 @@ server = function(input, output, session) {
   output$protocol_preview <- renderPrint({
     write(myprotocol(), file = "")
   })
+  
+  ### Downloads
+  output$download_script <- downloadHandler(
+    filename = function() {
+      paste0(format(Sys.time(), "%Y%m%d-%H%M%S"), '-custom-transfer.py')
+    },
+    content = function(con) {
+      # at download time, replace name so that it appears on the Opentrons app
+      replacement <- paste0(format(Sys.time(), "%Y%m%d-%H%M%S"), '-custom-transfer.py')
+      write(myprotocol() %>%
+              str_replace(pattern = "10-custom-transfer.py", 
+                          replacement = replacement), 
+            con)
+    }
+  )
   
 }
 
