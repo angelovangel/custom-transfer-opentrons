@@ -96,6 +96,7 @@ sidebar <- dashboardSidebar(
   selectizeInput('pipetting_type', 'Pipetting type',
                  choices = c('transfer', 'distribute', 'consolidate'), 
                  selected = 'transfer', multiple = F),
+  selectizeInput('newtip', 'New tip', choices = c('always', 'once'), selected = 'always'),
   selectizeInput('left_pipette', 'Lef pipette', choices = c('p20_single_gen2', 'p300_single_gen2')),
   selectizeInput('right_pipette', 'Right pipette', choices = c('p20_multi_gen2', 'p300_multi_gen2'))
   
@@ -155,10 +156,16 @@ server = function(input, output, session) {
   # CORE functionality
   myvalues <- reactive({
     hot_table <- as_tibble(hot_to_r(input$hot))
-    swells <- hot_table$source_well %>% str_replace_na(replacement = ' ')
-    dwells <- hot_table$dest_well %>% str_replace_na(replacement = ' ')
+    swells <- hot_table$source_well %>% str_replace_na(replacement = '')
+    dwells <- hot_table$dest_well %>% str_replace_na(replacement = '')
     vols <-str_replace_na(hot_table$vol, '0')
     
+    if( input$pipetting_type == 'distribute' ) {
+      swells <- swells[swells != ''] %>% unique()
+    } 
+    if( input$pipetting_type == 'consolidate' ) {
+      dwells <- dwells[dwells != ''] %>% unique()
+    }
     c(
       str_flatten(swells, collapse = "','"),
       str_flatten(dwells, collapse = "','"),
@@ -179,6 +186,9 @@ server = function(input, output, session) {
                 ) %>%
     str_replace(pattern = "pipetting_type = .*", 
                 replacement = paste0("pipetting_type = ", "'", input$pipetting_type, "'")
+                ) %>%
+    str_replace(pattern = "newtip = .*", 
+                replacement = paste0("newtip = ", "'",input$newtip, "'")
                 ) %>%
     str_replace(pattern = "dest_type = .*", 
                 replacement = paste0("dest_type = ", "'", input$dest_labware, "'")
