@@ -11,6 +11,7 @@ library(rmarkdown)
 library(vroom)
 library(plater)
 
+# call wells_colwise(12, 1) to get columns only
 wells_colwise <- function(cols, rows)
 {
   lapply(1:cols, function(x) {str_c(LETTERS[1:rows], x)}) %>% 
@@ -147,10 +148,11 @@ server = function(input, output, session) {
     selected_src <- labware[labware$id == input$source_labware, , drop = FALSE]
     selected_dest <- labware[labware$id == input$dest_labware, , drop = FALSE]
     make_hot(
-      scols = selected_src$cols, 
-      srows = selected_src$rows, 
+      scols = selected_src$cols,
+      # columns only if multichannel
+      srows = if_else(input$active_pipet == 'Right (multi channel)', 1, selected_src$rows), 
       dcols = selected_dest$cols, 
-      drows = selected_dest$rows
+      drows = if_else(input$active_pipet == 'Right (multi channel)', 1, selected_dest$rows)
       )
   })
   
@@ -161,6 +163,10 @@ server = function(input, output, session) {
     dwells <- hot_table$dest_well %>% str_replace_na(replacement = '')
     vols <-str_replace_na(hot_table$vol, '0')
     
+    # if(input$active_pipet == 'Right (multi channel)') {
+    #   swells <- str_extract(swells, pattern = 'A[0-9]+')
+    #   dwells <- str_extract(dwells, pattern = 'A[0-9]+')
+    # }
     if( input$pipetting_type == 'distribute' ) {
       swells <- swells[swells != ''] %>% unique()
     } 
@@ -168,8 +174,8 @@ server = function(input, output, session) {
       dwells <- dwells[dwells != ''] %>% unique()
     }
     c(
-      str_flatten(swells, collapse = "','"),
-      str_flatten(dwells, collapse = "','"),
+      str_flatten(swells, collapse = "','", na.rm = T),
+      str_flatten(dwells, collapse = "','", na.rm = T),
       str_flatten(vols, collapse = ", ")
     )
   })
