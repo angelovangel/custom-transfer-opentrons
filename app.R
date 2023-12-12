@@ -151,6 +151,10 @@ server = function(input, output, session) {
     )
   })
   
+  # collect volume for each well in source, using hot() well id and vol
+  source_content <- reactive({
+    
+  })
   
   source_react <- reactive({
     selected_labware <- labware[labware$id == input$source_labware, , drop = FALSE]
