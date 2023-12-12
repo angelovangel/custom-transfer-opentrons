@@ -19,14 +19,22 @@ wells_colwise <- function(cols, rows)
 }
 
 # used to generate a plater::view_plate()
-make_plate <- function(cols, rows) {
+make_plate <- function(cols, rows, content, multi) {
   nwells <- cols * rows
+  if (multi) {
+    content <- rep(content, each = rows)
+  } else {
+    content <- content
+  }
+  length(content) <- nwells
+  #wellcontent <- str_replace_na(wellcontent, replacement = ".")
   df <- tibble(
     id = wells_colwise(cols, rows),
-    label = seq(nwells)
+    label = seq(nwells),
+    wellcontent = content
   )
-  plate <- plater::view_plate(df, well_ids_column = 'id', columns_to_display = 'label', plate_size = nwells)
-  plate$label
+  plate <- plater::view_plate(df, well_ids_column = 'id', columns_to_display = 'wellcontent', plate_size = nwells)
+  plate$wellcontent
 }
 
 # used to generate main table - hot
@@ -42,7 +50,7 @@ make_hot <- function(scols, srows, dcols, drows) {
   } else if (swells < dwells) {
     length(source_well) <- length(dest_well)
   }
-  data.frame(
+  tibble(
     source_well = source_well,
     dest_well = dest_well,
     vol = 0
@@ -50,7 +58,7 @@ make_hot <- function(scols, srows, dcols, drows) {
 }
 
 tab1 <- fluidRow(
-  box(width = 12, status = "warning", solidHeader = FALSE, title = 'Source and destination labware',
+  box(width = 12, status = "danger", solidHeader = FALSE, title = 'Source and destination labware',
       fluidRow(
         column(6,
                pickerInput(
@@ -77,6 +85,7 @@ tab1 <- fluidRow(
         column(9,
                tags$p('Source preview'),
                reactableOutput('source_plate'),
+               tags$hr(),
                tags$p('Destination preview'),
                reactableOutput('dest_plate')
                )
@@ -85,7 +94,7 @@ tab1 <- fluidRow(
 )
 
 tab2 <- fluidRow(
-  box(width = 12, status = "warning", solidHeader = FALSE, title = "Opentrons protocol preview", collapsible = F,
+  box(width = 12, status = "danger", solidHeader = FALSE, title = "Opentrons protocol preview", collapsible = F,
       verbatimTextOutput('protocol_preview')
   )
 )
@@ -130,20 +139,6 @@ server = function(input, output, session) {
   
   # Reactives
   
-  source_react <- reactive({
-    selected_labware <- labware[labware$id == input$source_labware, , drop = FALSE]
-    cols <- selected_labware$cols
-    rows <- selected_labware$rows
-    make_plate(cols = cols, rows = rows)
-  })
-  
-  dest_react <- reactive({
-    selected_labware <- labware[labware$id == input$dest_labware, , drop = FALSE]
-    cols <- selected_labware$cols
-    rows <- selected_labware$rows
-    make_plate(cols = cols, rows = rows)
-  })
-  
   hot <- reactive({
     selected_src <- labware[labware$id == input$source_labware, , drop = FALSE]
     selected_dest <- labware[labware$id == input$dest_labware, , drop = FALSE]
@@ -153,7 +148,35 @@ server = function(input, output, session) {
       srows = if_else(input$active_pipet == 'Right (multi channel)', 1, selected_src$rows), 
       dcols = selected_dest$cols, 
       drows = if_else(input$active_pipet == 'Right (multi channel)', 1, selected_dest$rows)
-      )
+    )
+  })
+  
+  
+  source_react <- reactive({
+    selected_labware <- labware[labware$id == input$source_labware, , drop = FALSE]
+    cols <- selected_labware$cols
+    rows <- selected_labware$rows
+    ht <- as_tibble(hot_to_r(input$hot))
+    
+    #make_plate(cols = cols, rows = rows, wellcontent = paste0('↑',ht$vol))
+    make_plate(
+      cols = cols, 
+      rows = rows, 
+      content = str_replace_na(ht$vol, '0'), 
+      multi = if_else(input$active_pipet != 'Left (single channel)', TRUE, FALSE))
+  })
+  
+  dest_react <- reactive({
+    selected_labware <- labware[labware$id == input$dest_labware, , drop = FALSE]
+    cols <- selected_labware$cols
+    rows <- selected_labware$rows
+    ht <- as_tibble(hot_to_r(input$hot))
+    #make_plate(cols = cols, rows = rows, wellcontent = paste0('↓', ht$vol))
+    make_plate(
+      cols = cols, 
+      rows = rows, 
+      content = str_replace_na(ht$vol, '0'),
+      multi = if_else(input$active_pipet != 'Left (single channel)', TRUE, FALSE))
   })
   
   # CORE functionality
@@ -232,7 +255,16 @@ server = function(input, output, session) {
       columns = list(.rownames = colDef(style = list(color = 'black', fontSize = '90%'))),
       defaultColDef =
         colDef(
-          style = list(color = 'grey', fontSize = '90%'),
+          style = function(value) {
+            if (value > 0) {
+              color <- "#FF5733"
+              fw <- "bold"
+            } else {
+              color <- 'grey'
+              fw <- "lighter"
+            }
+            list(color = color, fontWeight = fw, fontSize = '90%')
+            },
           minWidth = 40,
           html = TRUE,
           headerStyle = list(background = "#f7f7f8", fontSize = '90%')
@@ -247,7 +279,16 @@ server = function(input, output, session) {
       columns = list(.rownames = colDef(style = list(color = 'black', fontSize = '90%'))),
       defaultColDef =
         colDef(
-          style = list(color = 'grey', fontSize = '90%'),
+          style = function(value) {
+            if (value > 0) {
+              color <- "#229954"
+              fw <- "bold"
+            } else {
+              color <- 'grey'
+              fw <- "lighter"
+            }
+            list(color = color, fontWeight = fw, fontSize = '90%')
+            },
           minWidth = 40,
           html = TRUE,
           headerStyle = list(background = "#f7f7f8", fontSize = '90%')
