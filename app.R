@@ -14,8 +14,8 @@ library(plater)
 # call wells_colwise(12, 1) to get columns only
 wells_colwise <- function(cols, rows)
 {
-  lapply(1:cols, function(x) {str_c(LETTERS[1:rows], x)}) %>% 
-    unlist()
+  l <- lapply(1:cols, function(x) {str_c(LETTERS[1:rows], x)}) %>% unlist()
+  factor(l, levels = l)
 }
 
 # used to generate a plater::view_plate()
@@ -26,6 +26,7 @@ make_plate <- function(cols, rows, content, multi) {
   } else {
     content <- content
   }
+  
   length(content) <- nwells
   #wellcontent <- str_replace_na(wellcontent, replacement = ".")
   df <- tibble(
@@ -101,8 +102,8 @@ tab2 <- fluidRow(
 
 sidebar <- dashboardSidebar(
   selectizeInput('active_pipet', 'Active pipet', 
-                 choices = c('Left (single channel)', 'Right (multi channel)'), 
-                 selected = 'Left (single channel)'),
+                 choices = list('Left (single channel)' = 'left', 'Right (multi channel)' = 'right'), 
+                 selected = 'left'),
   selectizeInput('pipetting_type', 'Pipetting type',
                  choices = c('transfer', 'distribute', 'consolidate'), 
                  selected = 'transfer', multiple = F),
@@ -145,29 +146,34 @@ server = function(input, output, session) {
     make_hot(
       scols = selected_src$cols,
       # columns only if multichannel
-      srows = if_else(input$active_pipet == 'Right (multi channel)', 1, selected_src$rows), 
+      srows = if_else(input$active_pipet == 'right', 1, selected_src$rows), 
       dcols = selected_dest$cols, 
-      drows = if_else(input$active_pipet == 'Right (multi channel)', 1, selected_dest$rows)
+      drows = if_else(input$active_pipet == 'right', 1, selected_dest$rows)
     )
   })
   
-  # collect volume for each well in source, using hot() well id and vol
-  source_content <- reactive({
-    
-  })
+  # # collect volume for each well in source, using hot() well id and vol
+  # source_content <- reactive({
+  #   ht <- as_tibble(hot_to_r(input$hot))
+  #   ht %>%
+  #     group_by(source_well) %>%
+  #     summarise(vol = sum(vol))
+  # })
   
   source_react <- reactive({
     selected_labware <- labware[labware$id == input$source_labware, , drop = FALSE]
     cols <- selected_labware$cols
     rows <- selected_labware$rows
     ht <- as_tibble(hot_to_r(input$hot))
-    
+    print(ht$source_well)
+    print(ht$vol)
     #make_plate(cols = cols, rows = rows, wellcontent = paste0('↑',ht$vol))
     make_plate(
       cols = cols, 
       rows = rows, 
+      #content = ht$vol,
       content = str_replace_na(ht$vol, '0'), 
-      multi = if_else(input$active_pipet != 'Left (single channel)', TRUE, FALSE))
+      multi = if_else(input$active_pipet != 'left', TRUE, FALSE))
   })
   
   dest_react <- reactive({
@@ -180,7 +186,7 @@ server = function(input, output, session) {
       cols = cols, 
       rows = rows, 
       content = str_replace_na(ht$vol, '0'),
-      multi = if_else(input$active_pipet != 'Left (single channel)', TRUE, FALSE))
+      multi = if_else(input$active_pipet != 'left', TRUE, FALSE))
   })
   
   # CORE functionality
@@ -247,7 +253,9 @@ server = function(input, output, session) {
                     input$left_pipette == 'p20_single_gen2', 
                     "left_tips = 'opentrons_96_filtertiprack_20ul'", 
                     "left_tips = 'opentrons_96_filtertiprack_200ul'")
-      )
+      ) %>%
+      str_replace(pattern = "active_pip = .*", 
+                  replacement = paste0("active_pip = ", "'", input$active_pipet, "'"))
     
   })
   
