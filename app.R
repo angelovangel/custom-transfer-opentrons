@@ -165,14 +165,20 @@ server = function(input, output, session) {
       agg <- aggregate(vol ~ source_well, data = ht, sum)
       allwells <- tibble(source_well = wells_colwise(cols, rows))
       allvols <- left_join(allwells, agg, by = 'source_well')
-    #make_plate(cols = cols, rows = rows, wellcontent = paste0('↑',ht$vol))
-    make_plate(
-      cols = cols, 
-      rows = rows, 
-      #content = ht$vol,
-      content = str_replace_na(allvols$vol, '0'), 
-      multi = if_else(input$active_pipet != 'left', TRUE, FALSE)
-    ) 
+      
+      if(input$active_pipet == 'left') {
+        content <- str_replace_na(allvols$vol, '0')
+      } else {
+        content <- str_replace_na(ht$vol, '0')
+      }
+      
+      make_plate(
+        cols = cols, 
+        rows = rows, 
+        #content = ht$vol,
+        content = content, 
+        multi = if_else(input$active_pipet != 'left', TRUE, FALSE)
+      ) 
     }
     
   })
@@ -181,13 +187,25 @@ server = function(input, output, session) {
     selected_labware <- labware[labware$id == input$dest_labware, , drop = FALSE]
     cols <- selected_labware$cols
     rows <- selected_labware$rows
-    ht <- as_tibble(hot_to_r(input$hot))
-    #make_plate(cols = cols, rows = rows, wellcontent = paste0('↓', ht$vol))
-    make_plate(
-      cols = cols, 
-      rows = rows, 
-      content = str_replace_na(ht$vol, '0'),
-      multi = if_else(input$active_pipet != 'left', TRUE, FALSE))
+    if(!is.null(input$hot)) {
+      ht <- as_tibble(hot_to_r(input$hot))
+      agg <- aggregate(vol ~ dest_well, data = ht, sum)
+      allwells <- tibble(dest_well = wells_colwise(cols, rows))
+      allvols <- left_join(allwells, agg, by = 'dest_well')
+      
+      if(input$active_pipet == 'left') {
+        content <- str_replace_na(allvols$vol, '0')
+      } else {
+        content <- str_replace_na(ht$vol, '0')
+      }
+      
+      make_plate(
+        cols = cols, 
+        rows = rows, 
+        content = content,
+        multi = if_else(input$active_pipet != 'left', TRUE, FALSE)
+      )
+    }
   })
   
   # CORE functionality
@@ -265,7 +283,7 @@ server = function(input, output, session) {
     DF = source_react()
     if(!is.null(DF)) {
       reactable(
-        source_react(),
+        DF,
         highlight = T, wrap = F, bordered = T, compact = T, fullWidth = F, sortable = F, pagination = F,
         columns = list(.rownames = colDef(style = list(color = 'black', fontSize = '90%'))),
         defaultColDef =
@@ -289,27 +307,30 @@ server = function(input, output, session) {
   })
   
   output$dest_plate <- renderReactable({
-    reactable(
-      dest_react(),
-      highlight = T, wrap = F, bordered = T, compact = T, fullWidth = F, sortable = F, pagination = F,
-      columns = list(.rownames = colDef(style = list(color = 'black', fontSize = '90%'))),
-      defaultColDef =
-        colDef(
-          style = function(value) {
-            if (value > 0) {
-              color <- "#229954"
-              fw <- "bold"
-            } else {
-              color <- 'grey'
-              fw <- "lighter"
-            }
-            list(color = color, fontWeight = fw, fontSize = '90%')
-            },
-          minWidth = 40,
-          html = TRUE,
-          headerStyle = list(background = "#f7f7f8", fontSize = '90%')
+    DF = dest_react()
+    if(!is.null(DF)) {
+      reactable(
+        DF,
+        highlight = T, wrap = F, bordered = T, compact = T, fullWidth = F, sortable = F, pagination = F,
+        columns = list(.rownames = colDef(style = list(color = 'black', fontSize = '90%'))),
+        defaultColDef =
+          colDef(
+            style = function(value) {
+              if (value > 0) {
+                color <- "#229954"
+                fw <- "bold"
+              } else {
+                color <- 'grey'
+                fw <- "lighter"
+              }
+              list(color = color, fontWeight = fw, fontSize = '90%')
+              },
+            minWidth = 40,
+            html = TRUE,
+            headerStyle = list(background = "#f7f7f8", fontSize = '90%')
+          )
         )
-    )
+      }
   })
   
   # renders first column well in grey for better plate overview
