@@ -15,7 +15,8 @@ library(plater)
 wells_colwise <- function(cols, rows)
 {
   l <- lapply(1:cols, function(x) {str_c(LETTERS[1:rows], x)}) %>% unlist()
-  factor(l, levels = l)
+  l
+  #factor(l, levels = l)
 }
 
 # used to generate a plater::view_plate()
@@ -153,27 +154,27 @@ server = function(input, output, session) {
   })
   
   # # collect volume for each well in source, using hot() well id and vol
-  # source_content <- reactive({
-  #   ht <- as_tibble(hot_to_r(input$hot))
-  #   ht %>%
-  #     group_by(source_well) %>%
-  #     summarise(vol = sum(vol))
-  # })
   
   source_react <- reactive({
     selected_labware <- labware[labware$id == input$source_labware, , drop = FALSE]
     cols <- selected_labware$cols
     rows <- selected_labware$rows
-    ht <- as_tibble(hot_to_r(input$hot))
-    print(ht$source_well)
-    print(ht$vol)
+    
+    if (!is.null(input$hot)) {
+      ht <- as_tibble(hot_to_r(input$hot))
+      agg <- aggregate(vol ~ source_well, data = ht, sum)
+      allwells <- tibble(source_well = wells_colwise(cols, rows))
+      allvols <- left_join(allwells, agg, by = 'source_well')
     #make_plate(cols = cols, rows = rows, wellcontent = paste0('↑',ht$vol))
     make_plate(
       cols = cols, 
       rows = rows, 
       #content = ht$vol,
-      content = str_replace_na(ht$vol, '0'), 
-      multi = if_else(input$active_pipet != 'left', TRUE, FALSE))
+      content = str_replace_na(allvols$vol, '0'), 
+      multi = if_else(input$active_pipet != 'left', TRUE, FALSE)
+    ) 
+    }
+    
   })
   
   dest_react <- reactive({
@@ -261,27 +262,30 @@ server = function(input, output, session) {
   
   # Outputs
   output$source_plate <- renderReactable({
-    reactable(
-      source_react(),
-      highlight = T, wrap = F, bordered = T, compact = T, fullWidth = F, sortable = F, pagination = F,
-      columns = list(.rownames = colDef(style = list(color = 'black', fontSize = '90%'))),
-      defaultColDef =
-        colDef(
-          style = function(value) {
-            if (value > 0) {
-              color <- "#FF5733"
-              fw <- "bold"
-            } else {
-              color <- 'grey'
-              fw <- "lighter"
-            }
-            list(color = color, fontWeight = fw, fontSize = '90%')
-            },
-          minWidth = 40,
-          html = TRUE,
-          headerStyle = list(background = "#f7f7f8", fontSize = '90%')
-        )
-    )
+    DF = source_react()
+    if(!is.null(DF)) {
+      reactable(
+        source_react(),
+        highlight = T, wrap = F, bordered = T, compact = T, fullWidth = F, sortable = F, pagination = F,
+        columns = list(.rownames = colDef(style = list(color = 'black', fontSize = '90%'))),
+        defaultColDef =
+          colDef(
+            style = function(value) {
+              if (value > 0) {
+                color <- "#FF5733"
+                fw <- "bold"
+              } else {
+                color <- 'grey'
+                fw <- "lighter"
+              }
+              list(color = color, fontWeight = fw, fontSize = '90%')
+              },
+            minWidth = 40,
+            html = TRUE,
+            headerStyle = list(background = "#f7f7f8", fontSize = '90%')
+          )
+      )
+      }
   })
   
   output$dest_plate <- renderReactable({
@@ -325,7 +329,9 @@ server = function(input, output, session) {
   }
   
   output$hot <- renderRHandsontable({
-    rhandsontable(hot()) %>%
+    DF = hot()
+    if(!is.null(DF)) {
+      rhandsontable(hot()) %>%
         hot_col('source_well', readOnly = F, type = 'dropdown',
                 source = unique(hot()$source_well), 
                 renderer = rendergrey()) %>%
@@ -333,6 +339,7 @@ server = function(input, output, session) {
                 source = unique(hot()$dest_well), 
                 renderer = rendergrey()) %>%
         hot_col('vol', type = 'numeric', allowInvalid = F)
+    }
   })
   
   output$protocol_preview <- renderPrint({
