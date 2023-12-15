@@ -163,14 +163,15 @@ server = function(input, output, session) {
     if (!is.null(input$hot)) {
       ht <- as_tibble(hot_to_r(input$hot))
       agg <- aggregate(vol ~ source_well, data = ht, sum)
-      allwells <- tibble(source_well = wells_colwise(cols, rows))
-      allvols <- left_join(allwells, agg, by = 'source_well')
       
-      if(input$active_pipet == 'left') {
-        content <- str_replace_na(allvols$vol, '0')
+      if (input$active_pipet == 'left') {
+        allwells <- tibble(source_well = wells_colwise(cols, rows))
       } else {
-        content <- str_replace_na(ht$vol, '0')
+        allwells <- tibble(source_well = wells_colwise(cols, 1))
       }
+      
+      allvols <- left_join(allwells, agg, by = 'source_well')
+      content <- str_replace_na(allvols$vol, '0')
       
       make_plate(
         cols = cols, 
@@ -180,7 +181,6 @@ server = function(input, output, session) {
         multi = if_else(input$active_pipet != 'left', TRUE, FALSE)
       ) 
     }
-    
   })
   
   dest_react <- reactive({
@@ -190,14 +190,15 @@ server = function(input, output, session) {
     if(!is.null(input$hot)) {
       ht <- as_tibble(hot_to_r(input$hot))
       agg <- aggregate(vol ~ dest_well, data = ht, sum)
-      allwells <- tibble(dest_well = wells_colwise(cols, rows))
-      allvols <- left_join(allwells, agg, by = 'dest_well')
       
-      if(input$active_pipet == 'left') {
-        content <- str_replace_na(allvols$vol, '0')
+      if (input$active_pipet == 'left') {
+        allwells <- tibble(dest_well = wells_colwise(cols, rows))
       } else {
-        content <- str_replace_na(ht$vol, '0')
+        allwells <- tibble(dest_well = wells_colwise(cols, 1))
       }
+      
+      allvols <- left_join(allwells, agg, by = 'dest_well')
+      content <- str_replace_na(allvols$vol, '0')
       
       make_plate(
         cols = cols, 
