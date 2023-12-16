@@ -22,7 +22,10 @@ wells_colwise <- function(cols, rows)
 # used to generate a plater::view_plate()
 make_plate <- function(cols, rows, content, multi) {
   nwells <- cols * rows
-  if (multi) {
+  if(multi & rows > 8) {
+    # special case for 384 well plate, pipetting is done A1, B1, A2, B2 ...
+    content <- lapply(seq(2, cols*2, by = 2), function(x) rep(content[(x-1):x], times = 8)) %>% unlist
+  } else if (multi) {
     content <- rep(content, each = rows)
   } else {
     content <- content
@@ -147,9 +150,17 @@ server = function(input, output, session) {
     make_hot(
       scols = selected_src$cols,
       # columns only if multichannel
-      srows = if_else(input$active_pipet == 'right', 1, selected_src$rows), 
+      srows = 
+        case_when(
+          input$active_pipet == 'right' & selected_src$nwells == 384 ~ 2,
+          input$active_pipet == 'right' ~ 1, 
+          TRUE ~ selected_src$rows), 
       dcols = selected_dest$cols, 
-      drows = if_else(input$active_pipet == 'right', 1, selected_dest$rows)
+      drows = 
+        case_when(
+          input$active_pipet == 'right' & selected_dest$nwells == 384 ~ 2,
+          input$active_pipet == 'right' ~ 1, 
+          TRUE ~ selected_dest$rows)
     )
   })
   
@@ -164,13 +175,16 @@ server = function(input, output, session) {
       ht <- as_tibble(hot_to_r(input$hot))
       agg <- aggregate(vol ~ source_well, data = ht, sum)
       
-      if (input$active_pipet == 'left') {
-        allwells <- tibble(source_well = wells_colwise(cols, rows))
-      } else {
+      if (input$active_pipet == 'right' & selected_labware$nwells == 384) {
+        allwells <- tibble(source_well = wells_colwise(cols, 2))
+      } else if (input$active_pipet == 'right') {
         allwells <- tibble(source_well = wells_colwise(cols, 1))
+      } else {
+        allwells <- tibble(source_well = wells_colwise(cols, rows))
       }
       
       allvols <- left_join(allwells, agg, by = 'source_well')
+      print(allvols, n=100)
       content <- str_replace_na(allvols$vol, '0')
       
       make_plate(
