@@ -22,7 +22,7 @@ wells_colwise <- function(cols, rows)
 # used to generate a plater::view_plate()
 make_plate <- function(cols, rows, content, multi) {
   nwells <- cols * rows
-  if(multi & rows > 8) {
+  if(multi & rows == 16) {
     # special case for 384 well plate, pipetting is done A1, B1, A2, B2 ...
     content <- lapply(seq(2, cols*2, by = 2), function(x) rep(content[(x-1):x], times = 8)) %>% unlist
   } else if (multi) {
@@ -184,7 +184,7 @@ server = function(input, output, session) {
       }
       
       allvols <- left_join(allwells, agg, by = 'source_well')
-      print(allvols, n=100)
+      #print(allvols, n=100)
       content <- str_replace_na(allvols$vol, '0')
       
       make_plate(
@@ -205,10 +205,12 @@ server = function(input, output, session) {
       ht <- as_tibble(hot_to_r(input$hot))
       agg <- aggregate(vol ~ dest_well, data = ht, sum)
       
-      if (input$active_pipet == 'left') {
-        allwells <- tibble(dest_well = wells_colwise(cols, rows))
-      } else {
+      if (input$active_pipet == 'right' & selected_labware$nwells == 384) {
+        allwells <- tibble(dest_well = wells_colwise(cols, 2))
+      } else if (input$active_pipet == 'right') {
         allwells <- tibble(dest_well = wells_colwise(cols, 1))
+      } else {
+        allwells <- tibble(dest_well = wells_colwise(cols, rows))
       }
       
       allvols <- left_join(allwells, agg, by = 'dest_well')
@@ -295,6 +297,11 @@ server = function(input, output, session) {
   
   # Outputs
   output$source_plate <- renderReactable({
+    selected_labware <- labware[labware$id == input$source_labware, , drop = FALSE]
+    # exclude invalid combinations
+    if (input$active_pipet == 'right' &&  selected_labware$nwells < 96 ) {
+      validate('Not possible to use a multi-channel pipette with this labware')
+    }
     DF = source_react()
     if(!is.null(DF)) {
       reactable(
@@ -322,6 +329,12 @@ server = function(input, output, session) {
   })
   
   output$dest_plate <- renderReactable({
+    selected_labware <- labware[labware$id == input$dest_labware, , drop = FALSE]
+    # exclude invalid combinations
+    if (input$active_pipet == 'right' &&  selected_labware$nwells < 96 ) {
+      validate('Not possible to use a multi-channel pipette with this labware')
+    }
+    
     DF = dest_react()
     if(!is.null(DF)) {
       reactable(
