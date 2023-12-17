@@ -104,6 +104,12 @@ tab2 <- fluidRow(
   )
 )
 
+tab3 <- fluidRow(
+  box(width = 12, status = 'danger', solidHeader = FALSE, title = "Deck view", collapsible = F,
+      htmlOutput('deck'))
+)
+
+
 sidebar <- dashboardSidebar(
   selectizeInput('active_pipet', 'Active pipet', 
                  choices = list('Left (single channel)' = 'left', 'Right (multi channel)' = 'right'), 
@@ -114,7 +120,7 @@ sidebar <- dashboardSidebar(
   selectizeInput('newtip', 'New tip', choices = c('always', 'once'), selected = 'always'),
   selectizeInput('left_pipette', 'Lef pipette', choices = c('p20_single_gen2', 'p300_single_gen2')),
   selectizeInput('right_pipette', 'Right pipette', choices = c('p20_multi_gen2', 'p300_multi_gen2')),
-  downloadButton('download_script', 'Download script', style = 'margin-left:15px; margin-top:15px')
+  downloadButton('download_script', 'Download script', style = 'margin-left:15px; margin-top:15px; color: #444;')
   
 )
 
@@ -126,7 +132,8 @@ ui = dashboardPage(
           useShinyjs(),
           tabsetPanel(
             tabPanel(title = "Enter data", icon = icon("list"), tab1),
-            tabPanel(title = "Opentrons script preview", icon = icon('code'), tab2)
+            tabPanel(title = "Opentrons script preview", icon = icon('code'), tab2),
+            tabPanel(title = 'Deck view', icon = icon('table-cells-large'), tab3)
           )
         )
       )
@@ -393,6 +400,10 @@ server = function(input, output, session) {
   
   output$protocol_preview <- renderPrint({
     write(myprotocol(), file = "")
+  })
+  
+  output$deck <- renderUI({
+    HTML('<img src="deck.png" height="600">')
   })
   
   ### Downloads
