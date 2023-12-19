@@ -244,10 +244,10 @@ server = function(input, output, session) {
     #   dwells <- str_extract(dwells, pattern = 'A[0-9]+')
     # }
     if( input$pipetting_type == 'distribute' ) {
-      swells <- swells[swells != ''] %>% unique()
-    } 
+      swells <- swells[swells != ''] #%>% unique()
+    }
     if( input$pipetting_type == 'consolidate' ) {
-      dwells <- dwells[dwells != ''] %>% unique()
+      dwells <- dwells[dwells != ''] #%>% unique()
     }
     c(
       str_flatten(swells, collapse = "','", na.rm = T),
