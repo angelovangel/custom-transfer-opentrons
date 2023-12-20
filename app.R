@@ -114,12 +114,13 @@ sidebar <- dashboardSidebar(
   selectizeInput('active_pipet', 'Active pipet', 
                  choices = list('Left (single channel)' = 'left', 'Right (multi channel)' = 'right'), 
                  selected = 'left'),
+  selectizeInput('left_pipette', 'Left', choices = c('p20_single_gen2', 'p300_single_gen2')),
+  selectizeInput('right_pipette', 'Right', choices = c('p20_multi_gen2', 'p300_multi_gen2')),
   selectizeInput('pipetting_type', 'Pipetting type',
                  choices = c('transfer', 'distribute', 'consolidate'), 
                  selected = 'transfer', multiple = F),
+  uiOutput('mix'),
   selectizeInput('newtip', 'New tip', choices = c('always', 'once'), selected = 'always'),
-  selectizeInput('left_pipette', 'Lef pipette', choices = c('p20_single_gen2', 'p300_single_gen2')),
-  selectizeInput('right_pipette', 'Right pipette', choices = c('p20_multi_gen2', 'p300_multi_gen2')),
   downloadButton('download_script', 'Download script', style = 'margin-left:15px; margin-top:15px; color: #444;')
   
 )
@@ -298,11 +299,44 @@ server = function(input, output, session) {
                     "left_tips = 'opentrons_96_filtertiprack_200ul'")
       ) %>%
       str_replace(pattern = "active_pip = .*", 
-                  replacement = paste0("active_pip = ", "'", input$active_pipet, "'"))
+                  replacement = paste0("active_pip = ", "'", input$active_pipet, "'")) %>%
+      str_replace(pattern = 'mbefore = .*', 
+                  replacement = paste0("mbefore = (", input$btimes, ",", input$bmix_vol, ")")) %>%
+      str_replace(pattern = 'mafter = .*', 
+                  replacement = paste0("mafter = (", input$atimes, ",", input$amix_vol, ")"))
     
   })
   
   # Outputs
+  # add appropriate mix according to pipetting_type
+    output$mix <- renderUI({
+      mixchoices <- c('no mix' = 0, '2x' = 2, '3x' = 3, '5x' = 5, '10x' = 10, '20x' = 20)
+      if (input$pipetting_type == 'transfer') {
+        tagList(fluidRow(
+          style = "margin-top: -20px;",
+          column(6, selectizeInput('btimes', 'Mix before', choices = mixchoices, selected = 0), style='padding-right:0px;'), 
+          column(6, numericInput('bmix_vol', 'Mix vol', value = 0, min = 0, max = 200, step = 1), style='padding-left:0px;'),
+        ), fluidRow(
+          #style = "margin-top: -20px;",
+          column(6, selectizeInput('atimes', 'Mix after', choices = mixchoices, selected = 0), style='padding-right:0px;'),
+          column(6, numericInput('amix_vol', 'Mix vol', value = 0, min = 0, max = 200, step = 1), style='padding-left:0px;'),
+        ))
+      } else if (input$pipetting_type == 'distribute') {
+        fluidRow(
+          style = "margin-top: -20px;",
+          column(6, numericInput('btimes', 'Mix before', value = 1), style='padding-right:0px;'),
+          column(6, numericInput('bmix_vol', 'Mix vol', value = 1), style='padding-left:0px;'),
+        )
+      } else if (input$pipetting_type == 'consolidate') {
+        fluidRow(
+          style = "margin-top: -20px;",
+          column(6, numericInput('atimes', 'Mix after', value = 1), style='padding-right:0px;'),
+          column(6, numericInput('amix_vol', 'Mix vol', value = 1), style='padding-left:0px;'),
+        )
+      }
+    })
+  
+  
   output$source_plate <- renderReactable({
     selected_labware <- labware[labware$id == input$source_labware, , drop = FALSE]
     # exclude invalid combinations
