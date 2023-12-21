@@ -324,13 +324,13 @@ server = function(input, output, session) {
       } else if (input$pipetting_type == 'distribute') {
         fluidRow(
           style = "margin-top: -20px;",
-          column(6, numericInput('btimes', 'Mix before', value = 1), style='padding-right:0px;'),
+          column(6, selectizeInput('btimes', 'Mix before', choices = mixchoices, selected = 0), style='padding-right:0px;'),
           column(6, numericInput('bmix_vol', 'Mix vol', value = 1), style='padding-left:0px;'),
         )
       } else if (input$pipetting_type == 'consolidate') {
         fluidRow(
           style = "margin-top: -20px;",
-          column(6, numericInput('atimes', 'Mix after', value = 1), style='padding-right:0px;'),
+          column(6, selectizeInput('atimes', 'Mix after', choices = mixchoices, selected = 0), style='padding-right:0px;'),
           column(6, numericInput('amix_vol', 'Mix vol', value = 1), style='padding-left:0px;'),
         )
       }
