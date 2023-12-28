@@ -1,8 +1,7 @@
-# bslib version
 library(rhandsontable)
 library(shiny)
 library(shinyWidgets)
-library(bslib)
+library(shinydashboard)
 library(shinyjs)
 library(tibble)
 library(stringr)
@@ -11,8 +10,6 @@ library(dplyr)
 library(rmarkdown)
 library(vroom)
 library(plater)
-library(shinyjs)
-library(processx)
 
 # call wells_colwise(12, 1) to get columns only
 wells_colwise <- function(cols, rows)
@@ -33,6 +30,7 @@ make_plate <- function(cols, rows, content, multi) {
   } else {
     content <- content
   }
+  
   length(content) <- nwells
   #wellcontent <- str_replace_na(wellcontent, replacement = ".")
   df <- tibble(
@@ -45,6 +43,7 @@ make_plate <- function(cols, rows, content, multi) {
 }
 
 # used to generate main table - hot
+
 make_hot <- function(scols, srows, dcols, drows) {
   swells <- scols * srows
   dwells <- dcols * drows
@@ -62,97 +61,98 @@ make_hot <- function(scols, srows, dcols, drows) {
     vol = 0
   )
 }
-# input controls
-pipets <- list(
-  selectizeInput(
-    'active_pipet', 
-    'Active pipet', 
-    choices = list('Left (single channel)' = 'left', 'Right (multi channel)' = 'right'), 
-    selected = 'left'),
-selectizeInput('left_pipette', 'Left', choices = c('p20_single_gen2', 'p300_single_gen2')),
-selectizeInput('right_pipette', 'Right', choices = c('p20_multi_gen2', 'p300_multi_gen2'))
-)
 
-pipetting <- list(
-  selectizeInput(
-    'pipetting_type', 
-    'Pipetting type',
-    choices = c('transfer', 'distribute', 'consolidate'), 
-    selected = 'transfer', multiple = F),
-  uiOutput('mix'),
-  selectizeInput('newtip', 'New tip', choices = c('always', 'once'), selected = 'always')
-)
-sidebar <- sidebar(
-  accordion(
-    open = T,
-    accordion_panel(title = 'Select pipet', icon = bsicons::bs_icon('crosshair'), pipets),
-    accordion_panel(title = 'Adjust pipetting', icon = bsicons::bs_icon('sliders2'), pipetting)
-  ),
-  downloadButton('download_script', 'Download script') #style = 'margin-left:15px; margin-top:15px; color: #444;'),
-)
-
-
-panel1 <- list(
-  
-  pickerInput(
-    width = '90%',
-    'source_labware', 'Source labware', 
-    choices = select_labware, selected = 'biorad_96_wellplate_200ul_pcr'
-    #choicesOpt = list(content = labware$img_icon)
-  ),
-  pickerInput(
-    width = '90%',
-    'dest_labware', 'Destination labware', 
-    choices = select_labware, selected = 'biorad_96_wellplate_200ul_pcr'
-    #choicesOpt = list(content = labware$img_icon)
-  ),
-  
-    #card_header('Pipetting scheme'),
-    tags$div(
-      tags$a('Volumes'),
-      rHandsontableOutput('hot')
-    ),
-    
-    
-    tags$div(
-      tags$a('Source'),
-      reactableOutput('source_plate'),
-      tags$hr(),
-      tags$a('Destination'),
-      reactableOutput('dest_plate')
-    )
-)
-
-
-ui <- page_navbar(
-  useShinyjs(),
-  fillable = T,
-  title = 'Custom transfer OT2',
-  theme = bs_theme(font_scale = 0.9, bootswatch = 'yeti', primary = '#2E86C1'),
-  sidebar = sidebar,
-  #nav_spacer(),
-  nav_panel(
-    'Labware and volumes', 
-    layout_columns(
-      col_widths = c(6, 6, 3, 9), panel1[[1]], panel1[[2]], panel1[[3]], panel1[[4]])
-    ),
-  nav_panel('Protocol preview', verbatimTextOutput('protocol_preview')),
-  nav_panel('Deck preview', htmlOutput('deck')),
-  nav_panel(
-    'Simulate protocol',
-    actionButton('simulate', 'Run simulation', width = '25%'),
-    verbatimTextOutput('stdout')
+tab1 <- fluidRow(
+  box(width = 12, status = "danger", solidHeader = FALSE, title = 'Source and destination labware',
+      fluidRow(
+        column(6,
+               pickerInput(
+                 'source_labware', 'Source labware', 
+                 choices = select_labware, selected = 'biorad_96_wellplate_200ul_pcr'
+                 #choicesOpt = list(content = labware$img_icon)
+                 )
+               #imageOutput('source_img')
+               ),
+        column(6, 
+               pickerInput(
+                 'dest_labware', 'Destination labware', 
+                 choices = select_labware, selected = 'biorad_96_wellplate_200ul_pcr'
+                 #choicesOpt = list(content = labware$img_icon)
+                )
+               #imageOutput('dest_img', width = 200, height = 200)
+               )
+      ),
+      fluidRow(
+        column(3,
+               tags$p('Pipetting scheme'),
+               rHandsontableOutput('hot')
+               ),
+        column(9,
+               tags$p('Source preview'),
+               reactableOutput('source_plate'),
+               tags$hr(),
+               tags$p('Destination preview'),
+               reactableOutput('dest_plate')
+               )
+      )
   )
 )
 
-server <- function(input, output, session) {
-  # add opentrons_simulate path
-  old_path <- Sys.getenv("PATH")
-  Sys.setenv(PATH = paste(old_path, "/Users/angelangelov/mambaforge/bin", sep = ":"))
+tab2 <- fluidRow(
+  box(width = 12, status = "danger", solidHeader = FALSE, title = "Opentrons protocol preview", collapsible = F,
+      verbatimTextOutput('protocol_preview')
+  )
+)
+
+tab3 <- fluidRow(
+  box(width = 12, status = 'danger', solidHeader = FALSE, title = "Deck view", collapsible = F,
+      htmlOutput('deck'))
+)
+
+
+sidebar <- dashboardSidebar(
+  selectizeInput('active_pipet', 'Active pipet', 
+                 choices = list('Left (single channel)' = 'left', 'Right (multi channel)' = 'right'), 
+                 selected = 'left'),
+  selectizeInput('left_pipette', 'Left', choices = c('p20_single_gen2', 'p300_single_gen2')),
+  selectizeInput('right_pipette', 'Right', choices = c('p20_multi_gen2', 'p300_multi_gen2')),
+  selectizeInput('pipetting_type', 'Pipetting type',
+                 choices = c('transfer', 'distribute', 'consolidate'), 
+                 selected = 'transfer', multiple = F),
+  uiOutput('mix'),
+  selectizeInput('newtip', 'New tip', choices = c('always', 'once'), selected = 'always'),
+  downloadButton('download_script', 'Download script', style = 'margin-left:15px; margin-top:15px; color: #444;')
   
+)
+
+ui = dashboardPage(
+        skin = 'red',
+        header = dashboardHeader(title = 'Simple OT2 protocol'),
+        sidebar = sidebar,
+        body = dashboardBody(
+          useShinyjs(),
+          tabsetPanel(
+            tabPanel(title = "Enter data", icon = icon("list"), tab1),
+            tabPanel(title = "Opentrons script preview", icon = icon('code'), tab2),
+            tabPanel(title = 'Deck view', icon = icon('table-cells-large'), tab3)
+          )
+        )
+      )
+
+server = function(input, output, session) {
+  
+  # protocol_url <- "https://raw.githubusercontent.com/angelovangel/opentrons/main/protocols/10-custom-transfer.py"
+  # if (curl::has_internet()) {
+  #   con <- url(protocol_url)
+  #   protocol_template <- readLines(con, warn = F)
+  #   close(con)
+  # } else {
+  #   protocol_template <- readLines('10-custom-transfer.py', warn = F)
+  # }
   protocol_template <- readLines('10-custom-transfer.py', warn = F)
   
   # Reactives
+  
   hot <- reactive({
     selected_src <- labware[labware$id == input$source_labware, , drop = FALSE]
     selected_dest <- labware[labware$id == input$dest_labware, , drop = FALSE]
@@ -172,6 +172,8 @@ server <- function(input, output, session) {
           TRUE ~ selected_dest$rows)
     )
   })
+  
+  # # collect volume for each well in source, using hot() well id and vol
   
   source_react <- reactive({
     selected_labware <- labware[labware$id == input$source_labware, , drop = FALSE]
@@ -260,22 +262,22 @@ server <- function(input, output, session) {
     str_replace(string = protocol_template, 
                 pattern = 'source_wells =.*', 
                 replacement = paste0("source_wells = ['", myvalues()[1], "']")
-    ) %>%
-      str_replace(pattern = 'dest_wells =.*', 
-                  replacement = paste0("dest_wells = ['", myvalues()[2], "']")
-      ) %>%
-      str_replace(pattern = 'volumes =.*', 
-                  replacement = paste0("volumes = [", myvalues()[3], "]") 
-      ) %>%
-      str_replace(pattern = "pipetting_type = .*", 
-                  replacement = paste0("pipetting_type = ", "'", input$pipetting_type, "'")
-      ) %>%
-      str_replace(pattern = "newtip = .*", 
-                  replacement = paste0("newtip = ", "'",input$newtip, "'")
-      ) %>%
-      str_replace(pattern = "dest_type = .*", 
-                  replacement = paste0("dest_type = ", "'", input$dest_labware, "'")
-      ) %>%
+                ) %>%
+    str_replace(pattern = 'dest_wells =.*', 
+                replacement = paste0("dest_wells = ['", myvalues()[2], "']")
+                ) %>%
+    str_replace(pattern = 'volumes =.*', 
+                replacement = paste0("volumes = [", myvalues()[3], "]") 
+                ) %>%
+    str_replace(pattern = "pipetting_type = .*", 
+                replacement = paste0("pipetting_type = ", "'", input$pipetting_type, "'")
+                ) %>%
+    str_replace(pattern = "newtip = .*", 
+                replacement = paste0("newtip = ", "'",input$newtip, "'")
+                ) %>%
+    str_replace(pattern = "dest_type = .*", 
+                replacement = paste0("dest_type = ", "'", input$dest_labware, "'")
+                ) %>%
       str_replace(pattern = "source_type = .*", 
                   replacement = paste0("source_type = ", "'", input$source_labware, "'")
       ) %>%
@@ -308,32 +310,33 @@ server <- function(input, output, session) {
   
   # Outputs
   # add appropriate mix according to pipetting_type
-  output$mix <- renderUI({
-    mixchoices <- c('no mix' = 0, '2x' = 2, '3x' = 3, '5x' = 5, '10x' = 10, '20x' = 20)
-    if (input$pipetting_type == 'transfer') {
-      tagList(fluidRow(
-        style = "margin-top: -20px;",
-        column(6, selectizeInput('btimes', 'Mix before', choices = mixchoices, selected = 0), style='padding-right:0px;'), 
-        column(6, numericInput('bmix_vol', 'Mix vol', value = 0, min = 0, max = 200, step = 1), style='padding-left:0px;'),
-      ), fluidRow(
-        #style = "margin-top: -20px;",
-        column(6, selectizeInput('atimes', 'Mix after', choices = mixchoices, selected = 0), style='padding-right:0px;'),
-        column(6, numericInput('amix_vol', 'Mix vol', value = 0, min = 0, max = 200, step = 1), style='padding-left:0px;'),
-      ))
-    } else if (input$pipetting_type == 'distribute') {
-      fluidRow(
-        style = "margin-top: -20px;",
-        column(6, selectizeInput('btimes', 'Mix before', choices = mixchoices, selected = 0), style='padding-right:0px;'),
-        column(6, numericInput('bmix_vol', 'Mix vol', value = 1), style='padding-left:0px;'),
-      )
-    } else if (input$pipetting_type == 'consolidate') {
-      fluidRow(
-        style = "margin-top: -20px;",
-        column(6, selectizeInput('atimes', 'Mix after', choices = mixchoices, selected = 0), style='padding-right:0px;'),
-        column(6, numericInput('amix_vol', 'Mix vol', value = 1), style='padding-left:0px;'),
-      )
-    }
-  })
+    output$mix <- renderUI({
+      mixchoices <- c('no mix' = 0, '2x' = 2, '3x' = 3, '5x' = 5, '10x' = 10, '20x' = 20)
+      if (input$pipetting_type == 'transfer') {
+        tagList(fluidRow(
+          style = "margin-top: -20px;",
+          column(6, selectizeInput('btimes', 'Mix before', choices = mixchoices, selected = 0), style='padding-right:0px;'), 
+          column(6, numericInput('bmix_vol', 'Mix vol', value = 0, min = 0, max = 200, step = 1), style='padding-left:0px;'),
+        ), fluidRow(
+          #style = "margin-top: -20px;",
+          column(6, selectizeInput('atimes', 'Mix after', choices = mixchoices, selected = 0), style='padding-right:0px;'),
+          column(6, numericInput('amix_vol', 'Mix vol', value = 0, min = 0, max = 200, step = 1), style='padding-left:0px;'),
+        ))
+      } else if (input$pipetting_type == 'distribute') {
+        fluidRow(
+          style = "margin-top: -20px;",
+          column(6, selectizeInput('btimes', 'Mix before', choices = mixchoices, selected = 0), style='padding-right:0px;'),
+          column(6, numericInput('bmix_vol', 'Mix vol', value = 1), style='padding-left:0px;'),
+        )
+      } else if (input$pipetting_type == 'consolidate') {
+        fluidRow(
+          style = "margin-top: -20px;",
+          column(6, selectizeInput('atimes', 'Mix after', choices = mixchoices, selected = 0), style='padding-right:0px;'),
+          column(6, numericInput('amix_vol', 'Mix vol', value = 1), style='padding-left:0px;'),
+        )
+      }
+    })
+  
   
   output$source_plate <- renderReactable({
     selected_labware <- labware[labware$id == input$source_labware, , drop = FALSE]
@@ -358,13 +361,13 @@ server <- function(input, output, session) {
                 fw <- "lighter"
               }
               list(color = color, fontWeight = fw, fontSize = '90%')
-            },
+              },
             minWidth = 40,
             html = TRUE,
             headerStyle = list(background = "#f7f7f8", fontSize = '90%')
           )
       )
-    }
+      }
   })
   
   output$dest_plate <- renderReactable({
@@ -391,13 +394,13 @@ server <- function(input, output, session) {
                 fw <- "lighter"
               }
               list(color = color, fontWeight = fw, fontSize = '90%')
-            },
+              },
             minWidth = 40,
             html = TRUE,
             headerStyle = list(background = "#f7f7f8", fontSize = '90%')
           )
-      )
-    }
+        )
+      }
   })
   
   # renders first column well in grey for better plate overview
@@ -438,40 +441,20 @@ server <- function(input, output, session) {
     HTML('<img src="deck.png" height="600">')
   })
   
-  # observers
-  observeEvent(input$simulate, {
-    shinyjs::disable(id = 'simulate')
-    tmp <- tempfile('protocol', fileext = '.py')
-    write(myprotocol(), file = tmp)
-    ht <- as_tibble(hot_to_r(input$hot))
-    
-    withCallingHandlers({
-      shinyjs::html(id = "stdout", "")
-      if (all(ht$vol == 0)) {
-        processx::run(
-          'echo', args = ("All volumes are 0, can not simulate this!"),
-          stderr_to_stdout = TRUE, 
-          error_on_status = FALSE,
-          stdout_line_callback = function(line, proc) {message(line)}
-        )
-      } else {
-        processx::run(
-          'opentrons_simulate', 
-          args = tmp, 
-          stderr_to_stdout = TRUE, 
-          error_on_status = FALSE,
-          stdout_line_callback = function(line, proc) {message(line)}, 
-        )
-      }
-      shinyjs::enable(id = 'simulate')
+  ### Downloads
+  output$download_script <- downloadHandler(
+    filename = function() {
+      paste0(format(Sys.time(), "%Y%m%d-%H%M%S"), '-custom-transfer.py')
     },
-    message = function(m) {
-      shinyjs::html(id = "stdout", html = m$message, add = TRUE); 
-      runjs("document.getElementById('stdout').scrollTo(0,1e9);") 
-      # scroll the page to bottom with each message, 1e9 is just a big number
+    content = function(con) {
+      # at download time, replace name so that it appears on the Opentrons app
+      replacement <- paste0(format(Sys.time(), "%Y%m%d-%H%M%S"), '-custom-transfer.py')
+      write(myprotocol() %>%
+              str_replace(pattern = "10-custom-transfer.py", 
+                          replacement = replacement), 
+            con)
     }
-    )
-  })
+  )
   
 }
 
