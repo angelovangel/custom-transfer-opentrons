@@ -137,18 +137,18 @@ ui <- page_navbar(
       col_widths = c(6, 6, 3, 9), panel1[[1]], panel1[[2]], panel1[[3]], panel1[[4]])
     ),
   nav_panel('Protocol preview', verbatimTextOutput('protocol_preview')),
-  nav_panel('Deck preview', htmlOutput('deck')),
   nav_panel(
-    'Simulate protocol',
+    'Simulate run',
     actionButton('simulate', 'Run simulation', width = '25%'),
     verbatimTextOutput('stdout')
-  )
+  ),
+  nav_panel('Deck view', htmlOutput('deck'))
 )
 
 server <- function(input, output, session) {
   # add opentrons_simulate path
   old_path <- Sys.getenv("PATH")
-  Sys.setenv(PATH = paste(old_path, "/Users/angelangelov/mambaforge/bin", sep = ":"))
+  Sys.setenv(PATH = paste(old_path, Sys.getenv('OPENTRONS_PATH'), sep = ":"))
   
   protocol_template <- readLines('10-custom-transfer.py', warn = F)
   
@@ -324,13 +324,13 @@ server <- function(input, output, session) {
       fluidRow(
         style = "margin-top: -20px;",
         column(6, selectizeInput('btimes', 'Mix before', choices = mixchoices, selected = 0), style='padding-right:0px;'),
-        column(6, numericInput('bmix_vol', 'Mix vol', value = 1), style='padding-left:0px;'),
+        column(6, numericInput('bmix_vol', 'Mix vol', value = 0), style='padding-left:0px;'),
       )
     } else if (input$pipetting_type == 'consolidate') {
       fluidRow(
         style = "margin-top: -20px;",
         column(6, selectizeInput('atimes', 'Mix after', choices = mixchoices, selected = 0), style='padding-right:0px;'),
-        column(6, numericInput('amix_vol', 'Mix vol', value = 1), style='padding-left:0px;'),
+        column(6, numericInput('amix_vol', 'Mix vol', value = 0), style='padding-left:0px;'),
       )
     }
   })
@@ -457,7 +457,7 @@ server <- function(input, output, session) {
       } else {
         processx::run(
           'opentrons_simulate', 
-          args = tmp, 
+          args = tmp,
           stderr_to_stdout = TRUE, 
           error_on_status = FALSE,
           stdout_line_callback = function(line, proc) {message(line)}, 
