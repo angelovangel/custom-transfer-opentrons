@@ -139,7 +139,7 @@ ui <- page_navbar(
   nav_panel('Protocol preview', verbatimTextOutput('protocol_preview')),
   nav_panel(
     'Simulate run',
-    actionButton('simulate', 'Run simulation', width = '25%'),
+    actionButton('simulate', 'Run simulation', width = '25%'), 
     verbatimTextOutput('stdout')
   ),
   nav_panel('Deck view', htmlOutput('deck'))
@@ -440,13 +440,23 @@ server <- function(input, output, session) {
   
   # observers
   observeEvent(input$simulate, {
+    # clear stdout
+    shinyjs::html(id = "stdout", "")
+    
+    # check if opentrons_simulate is in path
+    if (system2('which', args = 'opentrons_simulate') == 1) {
+      shinyjs::html(id = 'stdout', "opentrons_simulate not in $PATH")
+      return()
+      }
+    
+    # change button
     shinyjs::disable(id = 'simulate')
+    shinyjs::html(id = 'simulate', "Working...")
     tmp <- tempfile('protocol', fileext = '.py')
     write(myprotocol(), file = tmp)
     ht <- as_tibble(hot_to_r(input$hot))
     
     withCallingHandlers({
-      shinyjs::html(id = "stdout", "")
       if (all(ht$vol == 0)) {
         processx::run(
           'echo', args = ("All volumes are 0, can not simulate this!"),
@@ -464,6 +474,7 @@ server <- function(input, output, session) {
         )
       }
       shinyjs::enable(id = 'simulate')
+      shinyjs::html(id = 'simulate', "Run simulation")
     },
     message = function(m) {
       shinyjs::html(id = "stdout", html = m$message, add = TRUE); 
