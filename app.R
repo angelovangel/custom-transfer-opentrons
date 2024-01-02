@@ -80,6 +80,7 @@ pipetting <- list(
     choices = c('transfer', 'distribute', 'consolidate'), 
     selected = 'transfer', multiple = F),
   uiOutput('mix'),
+  numericInput('airgap', 'Air gap', value = 0, min = 0, max = 200, step = 1),
   selectizeInput('newtip', 'New tip', choices = c('always', 'once'), selected = 'always')
 )
 sidebar <- sidebar(
@@ -302,7 +303,9 @@ server <- function(input, output, session) {
       str_replace(pattern = 'mbefore = .*', 
                   replacement = paste0("mbefore = (", input$btimes, ",", input$bmix_vol, ")")) %>%
       str_replace(pattern = 'mafter = .*', 
-                  replacement = paste0("mafter = (", input$atimes, ",", input$amix_vol, ")"))
+                  replacement = paste0("mafter = (", input$atimes, ",", input$amix_vol, ")")) %>%
+      str_replace(pattern = 'agap = .*', 
+                  replacement = paste0('agap = ', input$airgap))
     
   })
   
@@ -445,7 +448,7 @@ server <- function(input, output, session) {
     
     # check if opentrons_simulate is in path
     if (system2('which', args = 'opentrons_simulate') == 1) {
-      shinyjs::html(id = 'stdout', "opentrons_simulate not in $PATH")
+      shinyjs::html(id = 'stdout', "opentrons_simulate executable not found. Set the OPENTRONS_PATH variable to the opentrons path.")
       return()
       }
     
