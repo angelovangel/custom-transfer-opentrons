@@ -3,6 +3,7 @@ library(rhandsontable)
 library(shiny)
 library(shinyWidgets)
 library(bslib)
+library(bsicons)
 library(shinyjs)
 library(tibble)
 library(stringr)
@@ -140,7 +141,8 @@ ui <- page_navbar(
   nav_panel('Protocol preview', verbatimTextOutput('protocol_preview')),
   nav_panel(
     'Simulate run',
-    actionButton('simulate', 'Run simulation', width = '25%'), 
+    actionButton('simulate', 'Run simulation', width = '25%'),
+    uiOutput('pipet_valuebox'),
     verbatimTextOutput('stdout')
   ),
   nav_panel('Deck view', htmlOutput('deck'))
@@ -441,6 +443,38 @@ server <- function(input, output, session) {
     HTML('<img src="deck.png" height="600">')
   })
   
+  output$pipet_valuebox <- renderUI({
+    pipette_title <- if(input$active_pipet == 'left'){
+      input$left_pipette
+    } else {
+      input$right_pipette
+    }
+    vbs <- list(
+      value_box(
+        height = '70px',
+        title = pipette_title,
+        value = input$active_pipet,
+        showcase = bsicons::bs_icon('crosshair', size = '70%')
+      ),
+      value_box(
+        height = '70px',
+        title = paste0('Airgap: ', input$airgap, ' ul'),
+        value = input$pipetting_type,
+        showcase = bsicons::bs_icon('sliders2', size = '70%')
+        #p("bslib ain't one", bs_icon("emoji-smile")),
+        #p("hit me", bs_icon("suit-spade"))
+      ),
+      value_box(
+        height = '70px',
+        title = 'New tip:',
+        value = input$newtip,
+        #p('Source: ', input$source_labware),
+        #p('Destination: ', input$dest_labware)
+        showcase = bsicons::bs_icon('arrows-vertical', size = '70%')
+      )
+    )
+    layout_column_wrap(width = '250px', !!!vbs)
+  })
   # observers
   observeEvent(input$simulate, {
     # clear stdout
@@ -486,6 +520,31 @@ server <- function(input, output, session) {
     }
     )
   })
+  
+  observeEvent(input$active_pipet, {
+    if (input$active_pipet == 'left') {
+      shinyjs::hide(id = 'right_pipette')
+      shinyjs::show(id = 'left_pipette')
+    } else if (input$active_pipet == 'right') {
+      shinyjs::hide(id = 'left_pipette')
+      shinyjs::show(id = 'right_pipette') 
+    }
+  })
+  
+  # download
+  output$download_script <- downloadHandler(
+    filename = function() {
+      paste0(format(Sys.time(), "%Y%m%d-%H%M%S"), '-custom-transfer.py')
+    },
+    content = function(con) {
+      # at download time, replace name so that it appears on the Opentrons app
+      replacement <- paste0(format(Sys.time(), "%Y%m%d-%H%M%S"), '-custom-transfer.py')
+      write(myprotocol() %>%
+              str_replace(pattern = "10-custom-transfer.py", 
+                          replacement = replacement), 
+            con)
+    }
+  )
   
 }
 
