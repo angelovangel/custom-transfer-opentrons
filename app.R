@@ -1,7 +1,7 @@
 # bslib version
 library(rhandsontable)
 library(shiny)
-library(shinyWidgets)
+#library(shinyWidgets)
 library(bslib)
 library(bsicons)
 library(shinyjs)
@@ -449,6 +449,14 @@ server <- function(input, output, session) {
     } else {
       input$right_pipette
     }
+    ht <- as_tibble(hot_to_r(input$hot))
+    nsteps <- sum(ht$vol != 0, na.rm = T)
+    totalvol <- if(input$active_pipet == 'left') {
+       sum(ht$vol, na.rm = T)
+    } else {
+       sum(ht$vol, na.rm = T) * 8
+    }
+    
     vbs <- list(
       value_box(
         height = '70px',
@@ -458,19 +466,19 @@ server <- function(input, output, session) {
       ),
       value_box(
         height = '70px',
-        title = paste0('Airgap: ', input$airgap, ' ul'),
-        value = input$pipetting_type,
+        title = paste0(input$pipetting_type ,' steps:'),
+        value = nsteps,
         showcase = bsicons::bs_icon('sliders2', size = '70%')
         #p("bslib ain't one", bs_icon("emoji-smile")),
         #p("hit me", bs_icon("suit-spade"))
       ),
       value_box(
         height = '70px',
-        title = 'New tip:',
-        value = input$newtip,
+        title = 'total volume:',
+        value = paste0(formatC(totalvol, big.mark = ",", format = 'd', digits = 0), ' ul'),
         #p('Source: ', input$source_labware),
         #p('Destination: ', input$dest_labware)
-        showcase = bsicons::bs_icon('arrows-vertical', size = '70%')
+        showcase = bsicons::bs_icon('water', size = '70%')
       )
     )
     layout_column_wrap(width = '250px', !!!vbs)
