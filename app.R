@@ -143,12 +143,9 @@ ui <- page_navbar(
   nav_panel('Protocol preview', verbatimTextOutput('protocol_preview')),
   nav_panel(
       'Simulate run',
-      layout_column_wrap(
-        list(
-        actionButton('simulate', 'Run simulation', width = '25%')
-      )),
-    uiOutput('pipet_valuebox'),
-    verbatimTextOutput('stdout')
+      actionButton('simulate', 'Run simulation', width = '25%'),
+      uiOutput('pipet_valuebox'),
+      verbatimTextOutput('stdout')
   ),
   nav_panel('Deck view', htmlOutput('deck')),
   nav_panel('Download script', 
