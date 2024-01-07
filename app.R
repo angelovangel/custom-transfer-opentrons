@@ -1,7 +1,7 @@
 # bslib version
 library(rhandsontable)
 library(shiny)
-#library(shinyWidgets)
+library(shinyWidgets)
 library(bslib)
 library(bsicons)
 library(shinyjs)
@@ -67,7 +67,9 @@ make_hot <- function(scols, srows, dcols, drows) {
 pipets <- list(
   selectizeInput(
     'active_pipet', 
-    'Active pipet', 
+    label = tooltip(
+      trigger = list('Active pipet', bs_icon('info-circle')), 'Select the pipet to use'
+      ), 
     choices = list('Left (single channel)' = 'left', 'Right (multi channel)' = 'right'), 
     selected = 'left'),
 selectizeInput('left_pipette', 'Left', choices = c('p20_single_gen2', 'p300_single_gen2')),
@@ -89,8 +91,8 @@ sidebar <- sidebar(
     open = T,
     accordion_panel(title = 'Select pipet', icon = bsicons::bs_icon('crosshair'), pipets),
     accordion_panel(title = 'Adjust pipetting', icon = bsicons::bs_icon('sliders2'), pipetting)
-  ),
-  downloadButton('download_script', 'Download script') #style = 'margin-left:15px; margin-top:15px; color: #444;'),
+  )
+  #downloadButton('download_script', 'Download script') #style = 'margin-left:15px; margin-top:15px; color: #444;'),
 )
 
 
@@ -140,12 +142,18 @@ ui <- page_navbar(
     ),
   nav_panel('Protocol preview', verbatimTextOutput('protocol_preview')),
   nav_panel(
-    'Simulate run',
-    actionButton('simulate', 'Run simulation', width = '25%'),
+      'Simulate run',
+      layout_column_wrap(
+        list(
+        actionButton('simulate', 'Run simulation', width = '25%')
+      )),
     uiOutput('pipet_valuebox'),
     verbatimTextOutput('stdout')
   ),
-  nav_panel('Deck view', htmlOutput('deck'))
+  nav_panel('Deck view', htmlOutput('deck')),
+  nav_panel('Download script', 
+            downloadButton('download_script', 'Download script', style = 'width: 25%'))
+  #nav_item(downloadLink('download_script', 'Download script'))
 )
 
 server <- function(input, output, session) {
@@ -462,13 +470,15 @@ server <- function(input, output, session) {
         height = '70px',
         title = pipette_title,
         value = input$active_pipet,
-        showcase = bsicons::bs_icon('crosshair', size = '70%')
+        showcase = bsicons::bs_icon('crosshair', size = '70%'), 
+        theme_color = 'primary'
       ),
       value_box(
         height = '70px',
         title = paste0(input$pipetting_type ,' steps:'),
         value = nsteps,
-        showcase = bsicons::bs_icon('sliders2', size = '70%')
+        showcase = bsicons::bs_icon('sliders2', size = '70%'), 
+        theme_color = 'primary'
         #p("bslib ain't one", bs_icon("emoji-smile")),
         #p("hit me", bs_icon("suit-spade"))
       ),
@@ -478,7 +488,8 @@ server <- function(input, output, session) {
         value = paste0(formatC(totalvol, big.mark = ",", format = 'd', digits = 0), ' ul'),
         #p('Source: ', input$source_labware),
         #p('Destination: ', input$dest_labware)
-        showcase = bsicons::bs_icon('water', size = '70%')
+        showcase = bsicons::bs_icon('water', size = '70%'),
+        theme_color = 'primary'
       )
     )
     layout_column_wrap(width = '250px', !!!vbs)
