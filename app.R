@@ -113,16 +113,16 @@ panel1 <- list(
   
     #card_header('Pipetting scheme'),
     tags$div(
-      tags$a('Volumes'),
+      tags$a('Volumes', tooltip(bs_icon("info-circle"), 'Enter source/destination wells and volumes to be pipetted')),
       rHandsontableOutput('hot')
     ),
     
     
     tags$div(
-      tags$a('Source'),
+      tags$a('Source preview', tooltip(bs_icon("info-circle"), 'Total volumes aspirated for each well are shown in red')),
       reactableOutput('source_plate'),
       tags$hr(),
-      tags$a('Destination'),
+      tags$a('Destination preview', tooltip(bs_icon("info-circle"), 'Total volumes dispensed for each well are shown in green')),
       reactableOutput('dest_plate')
     )
 )
@@ -512,7 +512,7 @@ server <- function(input, output, session) {
     withCallingHandlers({
       if (all(ht$vol == 0)) {
         processx::run(
-          'echo', args = ("All volumes are 0, can not simulate this!"),
+          'echo', args = ("All volumes are 0, cannot simulate this!"),
           stderr_to_stdout = TRUE, 
           error_on_status = FALSE,
           stdout_line_callback = function(line, proc) {message(line)}
