@@ -290,23 +290,18 @@ server <- function(input, output, session) {
       str_replace(pattern = "right_mount = .*", 
                   replacement = paste0("right_mount = ", "'", input$right_pipette, "'")
       ) %>%
-      str_replace(pattern = "right_tips = .*", 
-                  replacement = if_else(
-                    input$right_pipette == 'p20_multi_gen2', 
-                    "right_tips = 'opentrons_96_filtertiprack_20ul'", 
-                    "right_tips = 'opentrons_96_filtertiprack_200ul'")
-      ) %>%
       str_replace(pattern = "left_mount = .*", 
                   replacement = paste0("left_mount = ", "'", input$left_pipette, "'")
       ) %>%
-      str_replace(pattern = "left_tips = .*", 
-                  replacement = if_else(
-                    input$left_pipette == 'p20_single_gen2', 
-                    "left_tips = 'opentrons_96_filtertiprack_20ul'", 
-                    "left_tips = 'opentrons_96_filtertiprack_200ul'")
-      ) %>%
       str_replace(pattern = "active_pip = .*", 
                   replacement = paste0("active_pip = ", "'", input$active_pipet, "'")) %>%
+      str_replace(pattern = "mytips = .*", 
+                  replacement = case_when(
+                    input$active_pipet == 'left' & input$left_pipette == 'p20_single_gen2' ~ "mytips = 'opentrons_96_filtertiprack_20ul'",
+                    input$active_pipet == 'right' & input$right_pipette == 'p20_multi_gen2' ~ "mytips = 'opentrons_96_filtertiprack_20ul'",
+                    TRUE ~ "mytips = 'opentrons_96_filtertiprack_200ul'"
+                    )
+      ) %>%
       str_replace(pattern = 'mbefore = .*', 
                   replacement = paste0("mbefore = (", input$btimes, ",", input$bmix_vol, ")")) %>%
       str_replace(pattern = 'mafter = .*', 
