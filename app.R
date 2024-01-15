@@ -83,8 +83,15 @@ pipetting <- list(
     choices = c('transfer', 'distribute', 'consolidate'), 
     selected = 'transfer', multiple = F),
   uiOutput('mix'),
-  numericInput('airgap', 'Air gap', value = 0, min = 0, max = 200, step = 1),
-  selectizeInput('newtip', 'New tip', choices = c('always', 'once'), selected = 'always')
+  numericInputIcon('aspirate_speed', 'Aspirate speed', 
+                   min = 5, max = 100, value = 100, step = 5, 
+                   icon = list(NULL, icon("percent"))),
+  numericInputIcon('dispense_speed', 'Dispense speed', 
+                   min = 5, max = 100, value = 100, step = 5, 
+                   icon = list(NULL, icon("percent"))),
+  selectizeInput('newtip', 'New tip', choices = c('always', 'once'), selected = 'always'),
+  numericInput('airgap', 'Air gap', value = 0, min = 0, max = 200, step = 1)
+  
 )
 sidebar <- sidebar(
   accordion(
@@ -307,7 +314,9 @@ server <- function(input, output, session) {
       str_replace(pattern = 'mafter = .*', 
                   replacement = paste0("mafter = (", input$atimes, ",", input$amix_vol, ")")) %>%
       str_replace(pattern = 'agap = .*', 
-                  replacement = paste0('agap = ', input$airgap))
+                  replacement = paste0('agap = ', input$airgap)) %>%
+      str_replace('aspirate_factor = .*', paste0('aspirate_factor = ', round(100/input$aspirate_speed, 2))) %>%
+      str_replace('dispense_factor = .*', paste0('dispense_factor = ', round(100/input$dispense_speed, 2)))
     
   })
   
