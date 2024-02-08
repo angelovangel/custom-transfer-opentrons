@@ -156,7 +156,9 @@ ui <- page_navbar(
   ),
   nav_panel('Deck view', htmlOutput('deck')),
   nav_panel('Download script', 
-            downloadButton('download_script', 'Download script', style = 'width: 25%'))
+            downloadButton('download_script', 'Download script', style = 'width: 25%'),
+            downloadButton('download_samples', 'Download wells/volumes table', style = 'width: 25%')
+            )
   #nav_item(downloadLink('download_script', 'Download script'))
 )
 
@@ -551,7 +553,7 @@ server <- function(input, output, session) {
     }
   })
   
-  # download
+  # downloads
   output$download_script <- downloadHandler(
     filename = function() {
       paste0(format(Sys.time(), "%Y%m%d-%H%M%S"), '-custom-transfer.py')
@@ -566,6 +568,16 @@ server <- function(input, output, session) {
     }
   )
   
+  output$download_samples <- downloadHandler(
+    filename = function() {
+      paste0(format(Sys.time(), "%Y%m%d-%H%M%S"), '-custom-transfer.csv')
+    },
+    content = function(con) {
+      # at download time, replace name so that it appears on the Opentrons app
+      replacement <- paste0(format(Sys.time(), "%Y%m%d-%H%M%S"), '-custom-transfer.py')
+      write.csv(as_tibble(hot_to_r(input$hot)), con, row.names = F)
+    }
+  )
 }
 
 shinyApp(ui, server)
