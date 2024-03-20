@@ -526,7 +526,7 @@ server <- function(input, output, session) {
       } else {
         processx::run(
           'opentrons_simulate', 
-          args = c('-e', tmp),
+          args = c('-e', '-L', 'data/labware', tmp),
           stderr_to_stdout = TRUE, 
           error_on_status = FALSE,
           stdout_line_callback = function(line, proc) {message(line)}, 

@@ -14,3 +14,5 @@ Opentrons 24 Tube Rack with NEST 0.5 mL Screwcap,opentrons_24_tuberack_nest_0.5m
 Opentrons 6 Tube Rack with Falcon 50 mL Conical,opentrons_6_tuberack_falcon_50ml_conical,3,2,6,rack,
 NEST 12 Well Reservoir 15 mL,nest_12_reservoir_15ml,12,8,96,reservoir,
 NEST 1 Well Reservoir 195 mL,nest_1_reservoir_195ml,12,8,96,reservoir,
+Stack ABI plate in Biorad plate,stack_plate_biorad96well,12,8,96,plate,
+Stack strips in Biorad plate,stack_strip_biorad96well,12,8,96,plate,
