@@ -65,15 +65,16 @@ make_hot <- function(scols, srows, dcols, drows) {
 }
 # input controls
 pipets <- list(
-  selectizeInput(
-    'active_pipet', 
-    label = tooltip(
-      trigger = list('Active pipet', bs_icon('info-circle')), 'Select the pipet to use'
-      ), 
-    choices = list('Left (single channel)' = 'left', 'Right (multi channel)' = 'right'), 
-    selected = 'left'),
-selectizeInput('left_pipette', 'Left', choices = c('p20_single_gen2', 'p300_single_gen2')),
-selectizeInput('right_pipette', 'Right', choices = c('p20_multi_gen2', 'p300_multi_gen2'))
+  # selectizeInput(
+  #   'active_pipet', 
+  #   label = tooltip(
+  #     trigger = list('Active pipet', bs_icon('info-circle')), 'Select the pipet to use'
+  #     ), 
+  #   choices = list('Left (single channel)' = 'left', 'Right (multi channel)' = 'right'), 
+  #   selected = 'left'),
+  selectizeInput('pipette_type', 'Pipette type', choices = c('1-channel', '8-channel')),
+  selectizeInput('mypipette', 'Pipette', choices = ''),
+  selectizeInput('mymount', 'Mount', choices = c('left', 'right'))
 )
 
 pipetting <- list(
@@ -178,14 +179,14 @@ server <- function(input, output, session) {
       # columns only if multichannel
       srows = 
         case_when(
-          input$active_pipet == 'right' & selected_src$nwells == 384 ~ 2,
-          input$active_pipet == 'right' ~ 1, 
+          input$pipette_type == '8-channel' & selected_src$nwells == 384 ~ 2,
+          input$pipette_type == '8-channel' ~ 1, 
           TRUE ~ selected_src$rows), 
       dcols = selected_dest$cols, 
       drows = 
         case_when(
-          input$active_pipet == 'right' & selected_dest$nwells == 384 ~ 2,
-          input$active_pipet == 'right' ~ 1, 
+          input$pipette_type == '8-channel' & selected_dest$nwells == 384 ~ 2,
+          input$pipette_type == '8-channel' ~ 1, 
           TRUE ~ selected_dest$rows)
     )
   })
@@ -199,9 +200,9 @@ server <- function(input, output, session) {
       ht <- as_tibble(hot_to_r(input$hot))
       agg <- aggregate(vol ~ source_well, data = ht, sum)
       
-      if (input$active_pipet == 'right' & selected_labware$nwells == 384) {
+      if (input$pipette_type == '8-channel' & selected_labware$nwells == 384) {
         allwells <- tibble(source_well = wells_colwise(cols, 2))
-      } else if (input$active_pipet == 'right') {
+      } else if (input$pipette_type == '8-channel') {
         allwells <- tibble(source_well = wells_colwise(cols, 1))
       } else {
         allwells <- tibble(source_well = wells_colwise(cols, rows))
@@ -216,7 +217,7 @@ server <- function(input, output, session) {
         rows = rows, 
         #content = ht$vol,
         content = content, 
-        multi = if_else(input$active_pipet != 'left', TRUE, FALSE)
+        multi = if_else(input$pipette_type != '1-channel', TRUE, FALSE)
       ) 
     }
   })
@@ -229,9 +230,9 @@ server <- function(input, output, session) {
       ht <- as_tibble(hot_to_r(input$hot))
       agg <- aggregate(vol ~ dest_well, data = ht, sum)
       
-      if (input$active_pipet == 'right' & selected_labware$nwells == 384) {
+      if (input$pipette_type == '8-channel' & selected_labware$nwells == 384) {
         allwells <- tibble(dest_well = wells_colwise(cols, 2))
-      } else if (input$active_pipet == 'right') {
+      } else if (input$pipette_type == '8-channel') {
         allwells <- tibble(dest_well = wells_colwise(cols, 1))
       } else {
         allwells <- tibble(dest_well = wells_colwise(cols, rows))
@@ -244,7 +245,7 @@ server <- function(input, output, session) {
         cols = cols, 
         rows = rows, 
         content = content,
-        multi = if_else(input$active_pipet != 'left', TRUE, FALSE)
+        multi = if_else(input$pipette_type != '1-channel', TRUE, FALSE)
       )
     }
   })
@@ -256,7 +257,7 @@ server <- function(input, output, session) {
     dwells <- hot_table$dest_well %>% str_replace_na(replacement = '')
     vols <-str_replace_na(hot_table$vol, '0')
     
-    # if(input$active_pipet == 'Right (multi channel)') {
+    # if(input$pipette_type == 'Right (multi channel)') {
     #   swells <- str_extract(swells, pattern = 'A[0-9]+')
     #   dwells <- str_extract(dwells, pattern = 'A[0-9]+')
     # }
@@ -296,18 +297,18 @@ server <- function(input, output, session) {
       str_replace(pattern = "source_type = .*", 
                   replacement = paste0("source_type = ", "'", input$source_labware, "'")
       ) %>%
-      str_replace(pattern = "right_mount = .*", 
-                  replacement = paste0("right_mount = ", "'", input$right_pipette, "'")
+      str_replace(pattern = "mypipette = .*", 
+                  replacement = paste0("mypipette = ", "'", input$mypipette, "'")
       ) %>%
-      str_replace(pattern = "left_mount = .*", 
-                  replacement = paste0("left_mount = ", "'", input$left_pipette, "'")
+      str_replace(pattern = "mymount = .*", 
+                  replacement = paste0("mymount = ", "'", input$mymount, "'")
       ) %>%
-      str_replace(pattern = "active_pip = .*", 
-                  replacement = paste0("active_pip = ", "'", input$active_pipet, "'")) %>%
+      # str_replace(pattern = "active_pip = .*",
+      #             replacement = paste0("active_pip = ", "'", input$pipette_type, "'")) %>%
       str_replace(pattern = "mytips = .*", 
                   replacement = case_when(
-                    input$active_pipet == 'left' & input$left_pipette == 'p20_single_gen2' ~ "mytips = 'opentrons_96_filtertiprack_20ul'",
-                    input$active_pipet == 'right' & input$right_pipette == 'p20_multi_gen2' ~ "mytips = 'opentrons_96_filtertiprack_20ul'",
+                    input$mypipette == 'p20_single_gen2' | input$mypipette == 'p20_multi_gen2' ~ "mytips = 'opentrons_96_filtertiprack_20ul'",
+                    #input$pipette_type == '8-channel' & input$mypipette == 'p20_multi_gen2' ~ "mytips = 'opentrons_96_filtertiprack_20ul'",
                     TRUE ~ "mytips = 'opentrons_96_filtertiprack_200ul'"
                     )
       ) %>%
@@ -354,7 +355,7 @@ server <- function(input, output, session) {
   output$source_plate <- renderReactable({
     selected_labware <- labware[labware$id == input$source_labware, , drop = FALSE]
     # exclude invalid combinations
-    if (input$active_pipet == 'right' &&  selected_labware$nwells < 96 ) {
+    if (input$pipette_type == '8-channel' &&  selected_labware$nwells < 96 ) {
       validate('Not possible to use a multi-channel pipette with this labware')
     }
     DF = source_react()
@@ -386,7 +387,7 @@ server <- function(input, output, session) {
   output$dest_plate <- renderReactable({
     selected_labware <- labware[labware$id == input$dest_labware, , drop = FALSE]
     # exclude invalid combinations
-    if (input$active_pipet == 'right' &&  selected_labware$nwells < 96 ) {
+    if (input$pipette_type == '8-channel' &&  selected_labware$nwells < 96 ) {
       validate('Not possible to use a multi-channel pipette with this labware')
     }
     
@@ -455,14 +456,14 @@ server <- function(input, output, session) {
   })
   
   output$pipet_valuebox <- renderUI({
-    pipette_title <- if(input$active_pipet == 'left'){
+    pipette_title <- if(input$pipette_type == '1-channel'){
       input$left_pipette
     } else {
       input$right_pipette
     }
     ht <- as_tibble(hot_to_r(input$hot))
     nsteps <- sum(ht$vol != 0, na.rm = T)
-    totalvol <- if(input$active_pipet == 'left') {
+    totalvol <- if(input$pipette_type == '1-channel') {
        sum(ht$vol, na.rm = T)
     } else {
        sum(ht$vol, na.rm = T) * 8
@@ -471,8 +472,8 @@ server <- function(input, output, session) {
     vbs <- list(
       value_box(
         height = '70px',
-        title = pipette_title,
-        value = input$active_pipet,
+        title = paste0(input$pipette_type," | ", input$mymount),
+        value = input$mypipette,
         showcase = bsicons::bs_icon('crosshair', size = '70%'), 
         theme_color = 'primary'
       ),
@@ -543,15 +544,23 @@ server <- function(input, output, session) {
     )
   })
   
-  observeEvent(input$active_pipet, {
-    if (input$active_pipet == 'left') {
-      shinyjs::hide(id = 'right_pipette')
-      shinyjs::show(id = 'left_pipette')
-    } else if (input$active_pipet == 'right') {
-      shinyjs::hide(id = 'left_pipette')
-      shinyjs::show(id = 'right_pipette') 
+  observeEvent(input$pipette_type, {
+    if (input$pipette_type == '1-channel') {
+      updateSelectizeInput('mypipette', choices = c('p20_single_gen2', 'p300_single_gen2'), session = session)
+    } else {
+      updateSelectizeInput('mypipette', choices = c('p20_multi_gen2', 'p300_multi_gen2'), session = session)
     }
   })
+  
+  # observeEvent(input$pipette_type, {
+  #   if (input$pipette_type == 'left') {
+  #     shinyjs::hide(id = 'right_pipette')
+  #     shinyjs::show(id = 'left_pipette')
+  #   } else if (input$pipette_type == 'right') {
+  #     shinyjs::hide(id = 'left_pipette')
+  #     shinyjs::show(id = 'right_pipette') 
+  #   }
+  # })
   
   # downloads
   output$download_script <- downloadHandler(
