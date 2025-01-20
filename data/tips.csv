@@ -1,0 +1,13 @@
+robot,tips,tipsnames
+ot2,opentrons_96_filtertiprack_10ul,OT2 10ul filt
+ot2,opentrons_96_filtertiprack_20ul,OT2 20ul filt
+ot2,opentrons_96_filtertiprack_200ul,OT2 200 ul filt
+ot2,opentrons_96_tiprack_10ul,OT2 10ul
+ot2,opentrons_96_tiprack_20ul,OT2 20 ul
+ot2,opentrons_96_tiprack_300ul,OT2 300ul
+flex,opentrons_flex_96_filtertiprack_1000ul, Flex 1000ul filt
+flex,opentrons_flex_96_filtertiprack_200ul, Flex 200ul filt
+flex,opentrons_flex_96_filtertiprack_50ul, Flex 50ul filt
+flex, opentrons_flex_96_tiprack_1000ul, Flex 1000ul
+flex,opentrons_flex_96_tiprack_200ul, Flex 200ul
+flex,opentrons_flex_96_tiprack_50ul, Flex 50ul

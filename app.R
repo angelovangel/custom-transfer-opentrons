@@ -24,9 +24,11 @@ wells_colwise <- function(cols, rows)
 }
 
 # used to generate a plater::view_plate()
-make_plate <- function(cols, rows, content, multi) {
+make_plate <- function(cols, rows, content, multi, fullhead) {
   nwells <- cols * rows
-  if(multi & rows == 16) {
+  if (fullhead) {
+    content <- rep(content, each = 96)
+  } else if(multi & rows == 16) {
     # special case for 384 well plate, pipetting is done A1, B1, A2, B2 ...
     content <- lapply(seq(2, cols*2, by = 2), function(x) rep(content[(x-1):x], times = 8)) %>% unlist
   } else if (multi) {
@@ -64,15 +66,11 @@ make_hot <- function(scols, srows, dcols, drows) {
   )
 }
 # input controls
+
 pipets <- list(
-  # selectizeInput(
-  #   'active_pipet', 
-  #   label = tooltip(
-  #     trigger = list('Active pipet', bs_icon('info-circle')), 'Select the pipet to use'
-  #     ), 
-  #   choices = list('Left (single channel)' = 'left', 'Right (multi channel)' = 'right'), 
-  #   selected = 'left'),
+  selectizeInput('myrobot', 'Robot', choices = c('OT2', 'Flex')),
   selectizeInput('pipette_type', 'Pipette type', choices = c('1-channel', '8-channel')),
+  selectizeInput('tips', 'Tips', choices = ''),
   selectizeInput('mypipette', 'Pipette', choices = ''),
   selectizeInput('mymount', 'Mount', choices = c('left', 'right'))
 )
@@ -91,13 +89,13 @@ pipetting <- list(
                    min = 5, max = 100, value = 100, step = 5, 
                    icon = list(NULL, icon("percent"))),
   selectizeInput('newtip', 'New tip', choices = c('always', 'once'), selected = 'always'),
-  numericInput('airgap', 'Air gap', value = 0, min = 0, max = 200, step = 1)
+  numericInput('airgap', 'Air gap', value = 0, min = 0, max = 20, step = 1)
   
 )
 sidebar <- sidebar(
   accordion(
     open = T,
-    accordion_panel(title = 'Select pipet', icon = bsicons::bs_icon('crosshair'), pipets),
+    accordion_panel(title = 'Robot and pipet', icon = bsicons::bs_icon('crosshair'), pipets),
     accordion_panel(title = 'Adjust pipetting', icon = bsicons::bs_icon('sliders2'), pipetting)
   )
   #downloadButton('download_script', 'Download script') #style = 'margin-left:15px; margin-top:15px; color: #444;'),
@@ -168,25 +166,51 @@ server <- function(input, output, session) {
   old_path <- Sys.getenv("PATH")
   Sys.setenv(PATH = paste(old_path, Sys.getenv('OPENTRONS_PATH'), sep = ":"))
   
-  protocol_template <- readLines('10-custom-transfer.py', warn = F)
-  
   # Reactives
+  protocol_template <- reactive({
+    if(input$myrobot == 'OT2') {
+      readLines('10-custom-transfer.py', warn = F) 
+    } else {
+      readLines('08-custom-transfer-flex.py', warn = F) 
+    }
+         
+  })
+  
+  tips <- reactive({
+    df <- vroom('data/tips.csv')
+    if(input$myrobot == 'OT2') {
+      items <- df[df$robot == 'ot2', ]$tips
+      names(items) <- df[df$robot == 'ot2', ]$tipsnames
+      items
+    } else {
+      items <- df[df$robot == 'flex', ]$tips
+      names(items) <- df[df$robot == 'flex', ]$tipsnames
+      items
+    }
+  })
+  
   hot <- reactive({
     selected_src <- labware[labware$id == input$source_labware, , drop = FALSE]
     selected_dest <- labware[labware$id == input$dest_labware, , drop = FALSE]
     make_hot(
-      scols = selected_src$cols,
+      scols = 
+        case_when(
+          input$pipette_type == '96-channel' ~ 1, 
+          TRUE ~ selected_src$cols),
       # columns only if multichannel
       srows = 
         case_when(
           input$pipette_type == '8-channel' & selected_src$nwells == 384 ~ 2,
-          input$pipette_type == '8-channel' ~ 1, 
+          input$pipette_type == '8-channel' |  input$pipette_type == '96-channel' ~ 1, 
           TRUE ~ selected_src$rows), 
-      dcols = selected_dest$cols, 
+      dcols = 
+        case_when(
+          input$pipette_type == '96-channel' ~ 1, 
+          TRUE ~ selected_dest$cols), 
       drows = 
         case_when(
           input$pipette_type == '8-channel' & selected_dest$nwells == 384 ~ 2,
-          input$pipette_type == '8-channel' ~ 1, 
+          input$pipette_type == '8-channel' | input$pipette_type == '96-channel' ~ 1, 
           TRUE ~ selected_dest$rows)
     )
   })
@@ -217,7 +241,8 @@ server <- function(input, output, session) {
         rows = rows, 
         #content = ht$vol,
         content = content, 
-        multi = if_else(input$pipette_type != '1-channel', TRUE, FALSE)
+        multi = if_else(input$pipette_type != '1-channel', TRUE, FALSE),
+        fullhead = if_else(input$pipette_type == '96-channel', TRUE, FALSE)
       ) 
     }
   })
@@ -245,7 +270,8 @@ server <- function(input, output, session) {
         cols = cols, 
         rows = rows, 
         content = content,
-        multi = if_else(input$pipette_type != '1-channel', TRUE, FALSE)
+        multi = if_else(input$pipette_type != '1-channel', TRUE, FALSE),
+        fullhead = if_else(input$pipette_type == '96-channel', TRUE, FALSE)
       )
     }
   })
@@ -275,7 +301,7 @@ server <- function(input, output, session) {
   })
   
   myprotocol <- reactive({
-    str_replace(string = protocol_template, 
+    str_replace(string = protocol_template(), 
                 pattern = 'source_wells =.*', 
                 replacement = paste0("source_wells = ['", myvalues()[1], "']")
     ) %>%
@@ -298,19 +324,26 @@ server <- function(input, output, session) {
                   replacement = paste0("source_type = ", "'", input$source_labware, "'")
       ) %>%
       str_replace(pattern = "mypipette = .*", 
-                  replacement = paste0("mypipette = ", "'", input$mypipette, "'")
+                  replacement = paste0("mypipette = ", "'", input$mypipette, "'") 
+      )%>%
+      str_replace(pattern = "mypipconfig = .*", 
+                  replacement = if_else(
+                    input$pipette_type == '96-channel', 
+                    paste0("mypipconfig = ","'","full", "'"), 
+                    paste0("mypipconfig = ","'","partial", "'"))
       ) %>%
       str_replace(pattern = "mymount = .*", 
                   replacement = paste0("mymount = ", "'", input$mymount, "'")
       ) %>%
       # str_replace(pattern = "active_pip = .*",
       #             replacement = paste0("active_pip = ", "'", input$pipette_type, "'")) %>%
-      str_replace(pattern = "mytips = .*", 
-                  replacement = case_when(
-                    input$mypipette == 'p20_single_gen2' | input$mypipette == 'p20_multi_gen2' ~ "mytips = 'opentrons_96_filtertiprack_20ul'",
-                    #input$pipette_type == '8-channel' & input$mypipette == 'p20_multi_gen2' ~ "mytips = 'opentrons_96_filtertiprack_20ul'",
-                    TRUE ~ "mytips = 'opentrons_96_filtertiprack_200ul'"
-                    )
+      str_replace(pattern = "mytips = .*",
+                  replacement = paste0("mytips = ", "'", input$tips, "'")
+                  # replacement = case_when(
+                  #   input$mypipette == 'p20_single_gen2' | input$mypipette == 'p20_multi_gen2' ~ "mytips = 'opentrons_96_filtertiprack_20ul'",
+                  #   #input$pipette_type == '8-channel' & input$mypipette == 'p20_multi_gen2' ~ "mytips = 'opentrons_96_filtertiprack_20ul'",
+                  #   TRUE ~ "mytips = 'opentrons_96_filtertiprack_200ul'"
+                  #   )
       ) %>%
       str_replace(pattern = 'mbefore = .*', 
                   replacement = paste0("mbefore = (", input$btimes, ",", input$bmix_vol, ")")) %>%
@@ -355,7 +388,7 @@ server <- function(input, output, session) {
   output$source_plate <- renderReactable({
     selected_labware <- labware[labware$id == input$source_labware, , drop = FALSE]
     # exclude invalid combinations
-    if (input$pipette_type == '8-channel' &&  selected_labware$nwells < 96 ) {
+    if (input$pipette_type != '1-channel' &&  selected_labware$nwells < 96 ) {
       validate('Not possible to use a multi-channel pipette with this labware')
     }
     DF = source_react()
@@ -387,7 +420,7 @@ server <- function(input, output, session) {
   output$dest_plate <- renderReactable({
     selected_labware <- labware[labware$id == input$dest_labware, , drop = FALSE]
     # exclude invalid combinations
-    if (input$pipette_type == '8-channel' &&  selected_labware$nwells < 96 ) {
+    if (input$pipette_type != '1-channel' &&  selected_labware$nwells < 96 ) {
       validate('Not possible to use a multi-channel pipette with this labware')
     }
     
@@ -496,7 +529,8 @@ server <- function(input, output, session) {
         theme_color = 'primary'
       )
     )
-    layout_column_wrap(width = '250px', !!!vbs)
+    layout_columns(col_widths = c(5,3,3), fillable = T, gap = 1, vbs[1], vbs[2], vbs[3])
+    #layout_column_wrap(width = '300px', !!!vbs)
   })
   # observers
   observeEvent(input$simulate, {
@@ -544,23 +578,28 @@ server <- function(input, output, session) {
     )
   })
   
-  observeEvent(input$pipette_type, {
-    if (input$pipette_type == '1-channel') {
-      updateSelectizeInput('mypipette', choices = c('p20_single_gen2', 'p300_single_gen2'), session = session)
+  observeEvent(input$myrobot, {
+    if (input$myrobot == 'Flex') {
+      updateSelectizeInput('mypipette', choices = 'flex_96channel_1000', session = session)
+      updateSelectizeInput('tips', choices = tips(), session = session)
+      shinyjs::disable('mypipette')
+      updateSelectizeInput('pipette_type', choices = c('8-channel', '96-channel'), session = session)
     } else {
+      shinyjs::enable('mypipette')
+      updateSelectizeInput('mypipette', choices = '', session = session)
+      updateSelectizeInput('tips', choices = tips(), session = session)
+      updateSelectizeInput('pipette_type', choices = c('1-channel', '8-channel'), session = session) 
+    }
+  })
+  
+  observeEvent(input$pipette_type, {
+    if (input$pipette_type == '1-channel' && input$myrobot == "OT2") {
+      updateSelectizeInput('mypipette', choices = c('p20_single_gen2', 'p300_single_gen2'), session = session)
+    } else if (input$pipette_type == '8-channel' && input$myrobot == "OT2") {
       updateSelectizeInput('mypipette', choices = c('p20_multi_gen2', 'p300_multi_gen2'), session = session)
     }
   })
   
-  # observeEvent(input$pipette_type, {
-  #   if (input$pipette_type == 'left') {
-  #     shinyjs::hide(id = 'right_pipette')
-  #     shinyjs::show(id = 'left_pipette')
-  #   } else if (input$pipette_type == 'right') {
-  #     shinyjs::hide(id = 'left_pipette')
-  #     shinyjs::show(id = 'right_pipette') 
-  #   }
-  # })
   
   # downloads
   output$download_script <- downloadHandler(
