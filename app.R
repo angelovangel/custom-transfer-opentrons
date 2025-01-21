@@ -26,17 +26,24 @@ wells_colwise <- function(cols, rows)
 # used to generate a plater::view_plate()
 make_plate <- function(cols, rows, content, multi, fullhead) {
   nwells <- cols * rows
-  if (fullhead) {
-    content <- rep(content, each = 96)
-  } else if(multi & rows == 16) {
-    # special case for 384 well plate, pipetting is done A1, B1, A2, B2 ...
-    content <- lapply(seq(2, cols*2, by = 2), function(x) rep(content[(x-1):x], times = 8)) %>% unlist
-  } else if (multi) {
-    content <- rep(content, each = rows)
+  #special case for 384 well plate and 96-well head
+  if (fullhead & rows == 16) {
+    content <- lapply(seq(2, cols*2, by = 2), function(x) rep(content[(x-1):x], times = 96)) %>% unlist
+    #print(content)
+    
+    } else if (fullhead) {
+      content <- rep(content, each = 96)
+  
+    } else if(multi & rows == 16) {
+      # special case for 384 well plate and 8-channel, pipetting is done A1, B1, A2, B2 ...
+      content <- lapply(seq(2, cols*2, by = 2), function(x) rep(content[(x-1):x], times = 8)) %>% unlist
+      
+    } else if (multi) {
+      content <- rep(content, each = rows)
   } else {
-    content <- content
+      content <- content
   }
-  length(content) <- nwells
+  length(content) <- nwells # truncates content to nwells
   #wellcontent <- str_replace_na(wellcontent, replacement = ".")
   df <- tibble(
     id = wells_colwise(cols, rows),
@@ -48,15 +55,16 @@ make_plate <- function(cols, rows, content, multi, fullhead) {
 }
 
 # used to generate main table - hot
-make_hot <- function(scols, srows, dcols, drows) {
+make_hot <- function(scols, srows, dcols, drows, s_slice , d_slice ) {
   swells <- scols * srows
   dwells <- dcols * drows
   # # fill with NA, let the user decide how to fill shorter labware
-  source_well <- wells_colwise(scols, srows)
-  dest_well <- wells_colwise(dcols, drows)
-  if (swells > dwells) {
+  source_well <- wells_colwise(scols, srows)[s_slice]
+  dest_well <- wells_colwise(dcols, drows)[d_slice]
+  
+  if (length(source_well) > length(dest_well)) {
     length(dest_well) <- length(source_well) 
-  } else if (swells < dwells) {
+  } else if (length(source_well) < length(dest_well)) {
     length(source_well) <- length(dest_well)
   }
   tibble(
@@ -69,10 +77,10 @@ make_hot <- function(scols, srows, dcols, drows) {
 
 pipets <- list(
   selectizeInput('myrobot', 'Robot', choices = c('OT2', 'Flex')),
-  selectizeInput('pipette_type', 'Pipette type', choices = c('1-channel', '8-channel')),
-  selectizeInput('tips', 'Tips', choices = ''),
+  selectizeInput('pipette_type', 'Tip pickup type', choices = c('1-channel', '8-channel', '96-channel')),
   selectizeInput('mypipette', 'Pipette', choices = ''),
-  selectizeInput('mymount', 'Mount', choices = c('left', 'right'))
+  selectizeInput('mymount', 'Mount', choices = c('left', 'right')),
+  selectizeInput('tips', 'Tips', choices = '')
 )
 
 pipetting <- list(
@@ -192,27 +200,29 @@ server <- function(input, output, session) {
   hot <- reactive({
     selected_src <- labware[labware$id == input$source_labware, , drop = FALSE]
     selected_dest <- labware[labware$id == input$dest_labware, , drop = FALSE]
-    make_hot(
-      scols = 
-        case_when(
-          input$pipette_type == '96-channel' ~ 1, 
-          TRUE ~ selected_src$cols),
+
+    mytable <- make_hot(
+      scols = selected_src$cols,
       # columns only if multichannel
-      srows = 
+      srows =
         case_when(
           input$pipette_type == '8-channel' & selected_src$nwells == 384 ~ 2,
-          input$pipette_type == '8-channel' |  input$pipette_type == '96-channel' ~ 1, 
-          TRUE ~ selected_src$rows), 
-      dcols = 
-        case_when(
-          input$pipette_type == '96-channel' ~ 1, 
-          TRUE ~ selected_dest$cols), 
-      drows = 
+          input$pipette_type == '8-channel' ~ 1,
+          TRUE ~ selected_src$rows),
+      dcols = selected_dest$cols,
+      drows =
         case_when(
           input$pipette_type == '8-channel' & selected_dest$nwells == 384 ~ 2,
-          input$pipette_type == '8-channel' | input$pipette_type == '96-channel' ~ 1, 
+          input$pipette_type == '8-channel'~ 1,
           TRUE ~ selected_dest$rows)
     )
+    if ((selected_src$nwells == 384 | selected_dest$nwells == 384) & input$pipette_type == '96-channel') {
+      mytable[c(1,2, 193, 194), ]
+    } else if (input$pipette_type == '96-channel') {
+      mytable[1, ]
+    } else {
+      mytable
+    }
   })
   
   source_react <- reactive({
@@ -228,12 +238,14 @@ server <- function(input, output, session) {
         allwells <- tibble(source_well = wells_colwise(cols, 2))
       } else if (input$pipette_type == '8-channel') {
         allwells <- tibble(source_well = wells_colwise(cols, 1))
+      } else if(input$pipette_type == '96-channel' & selected_labware$nwells == 384) {
+        allwells <- tibble(source_well = wells_colwise(cols, 2)[c(1, 2, 25, 26)]) # very tricky
       } else {
         allwells <- tibble(source_well = wells_colwise(cols, rows))
       }
       
       allvols <- left_join(allwells, agg, by = 'source_well')
-      #print(allvols, n=100)
+      #print(allvols, n=400)
       content <- str_replace_na(allvols$vol, '0')
       
       make_plate(
@@ -241,7 +253,7 @@ server <- function(input, output, session) {
         rows = rows, 
         #content = ht$vol,
         content = content, 
-        multi = if_else(input$pipette_type != '1-channel', TRUE, FALSE),
+        multi = if_else(input$pipette_type == '8-channel', TRUE, FALSE),
         fullhead = if_else(input$pipette_type == '96-channel', TRUE, FALSE)
       ) 
     }
@@ -270,7 +282,7 @@ server <- function(input, output, session) {
         cols = cols, 
         rows = rows, 
         content = content,
-        multi = if_else(input$pipette_type != '1-channel', TRUE, FALSE),
+        multi = if_else(input$pipette_type == '8-channel', TRUE, FALSE),
         fullhead = if_else(input$pipette_type == '96-channel', TRUE, FALSE)
       )
     }
@@ -327,10 +339,11 @@ server <- function(input, output, session) {
                   replacement = paste0("mypipette = ", "'", input$mypipette, "'") 
       )%>%
       str_replace(pattern = "mypipconfig = .*", 
-                  replacement = if_else(
-                    input$pipette_type == '96-channel', 
-                    paste0("mypipconfig = ","'","full", "'"), 
-                    paste0("mypipconfig = ","'","partial", "'"))
+                  replacement = case_when(
+                    input$pipette_type == '96-channel' ~ paste0("mypipconfig = ","'","full", "'"), 
+                    input$pipette_type == '8-channel' ~  paste0("mypipconfig = ","'","partial", "'"),
+                    input$pipette_type == '1-channel' ~  paste0("mypipconfig = ","'","single", "'")
+                    )
       ) %>%
       str_replace(pattern = "mymount = .*", 
                   replacement = paste0("mymount = ", "'", input$mymount, "'")
@@ -489,18 +502,14 @@ server <- function(input, output, session) {
   })
   
   output$pipet_valuebox <- renderUI({
-    pipette_title <- if(input$pipette_type == '1-channel'){
-      input$left_pipette
-    } else {
-      input$right_pipette
-    }
+    
     ht <- as_tibble(hot_to_r(input$hot))
     nsteps <- sum(ht$vol != 0, na.rm = T)
-    totalvol <- if(input$pipette_type == '1-channel') {
-       sum(ht$vol, na.rm = T)
-    } else {
-       sum(ht$vol, na.rm = T) * 8
-    }
+    totalvol <- case_when(
+      input$pipette_type == '1-channel' ~ sum(ht$vol, na.rm = T),
+      input$pipette_type == '8-channel' ~ sum(ht$vol, na.rm = T) * 8,
+      input$pipette_type == '96-channel' ~ sum(ht$vol, na.rm = T) * 96
+    )
     
     vbs <- list(
       value_box(
@@ -583,10 +592,12 @@ server <- function(input, output, session) {
       updateSelectizeInput('mypipette', choices = 'flex_96channel_1000', session = session)
       updateSelectizeInput('tips', choices = tips(), session = session)
       shinyjs::disable('mypipette')
-      updateSelectizeInput('pipette_type', choices = c('8-channel', '96-channel'), session = session)
+      shinyjs::disable('mymount')
+      updateSelectizeInput('pipette_type', choices = c('1-channel', '8-channel', '96-channel'), selected = '8-channel', session = session)
     } else {
       shinyjs::enable('mypipette')
-      updateSelectizeInput('mypipette', choices = '', session = session)
+      shinyjs::enable('mymount')
+      updateSelectizeInput('mypipette', choices = c('p20_single_gen2', 'p300_single_gen2'), session = session)
       updateSelectizeInput('tips', choices = tips(), session = session)
       updateSelectizeInput('pipette_type', choices = c('1-channel', '8-channel'), session = session) 
     }
