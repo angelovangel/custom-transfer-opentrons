@@ -598,7 +598,7 @@ server <- function(input, output, session) {
       shinyjs::enable('mypipette')
       shinyjs::enable('mymount')
       updateSelectizeInput('mypipette', choices = c('p20_single_gen2', 'p300_single_gen2'), session = session)
-      updateSelectizeInput('tips', choices = tips(), session = session)
+      updateSelectizeInput('tips', choices = tips(), selected = 'opentrons_96_filtertiprack_20ul', session = session)
       updateSelectizeInput('pipette_type', choices = c('1-channel', '8-channel'), session = session) 
     }
   })
