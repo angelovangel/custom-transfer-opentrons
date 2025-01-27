@@ -15,6 +15,7 @@ library(plater)
 library(shinyjs)
 library(processx)
 
+
 # call wells_colwise(12, 1) to get columns only
 wells_colwise <- function(cols, rows)
 {
@@ -152,7 +153,8 @@ ui <- page_navbar(
   nav_panel(
     'Labware and volumes', 
     layout_columns(
-      col_widths = c(6, 6, 3, 9), panel1[[1]], panel1[[2]], panel1[[3]], panel1[[4]])
+      panel1[[1]], panel1[[2]], panel1[[3]], panel1[[4]], 
+      col_widths = c(6, 6, 4, 8))
     ),
   nav_panel('Protocol preview', verbatimTextOutput('protocol_preview')),
   nav_panel(
@@ -480,6 +482,11 @@ server <- function(input, output, session) {
   }
   
   output$hot <- renderRHandsontable({
+    #### for tracking max vol
+    selected_src <- labware[labware$id == input$source_labware, , drop = FALSE]
+    selected_dest <- labware[labware$id == input$dest_labware, , drop = FALSE]
+    maxvol <- min(selected_src$max_vol, selected_dest$max_vol)
+    ####
     DF = hot()
     if(!is.null(DF)) {
       rhandsontable(hot()) %>%
@@ -489,7 +496,10 @@ server <- function(input, output, session) {
         hot_col('dest_well', type = 'dropdown', 
                 source = unique(hot()$dest_well), 
                 renderer = rendergrey()) %>%
-        hot_col('vol', type = 'numeric', allowInvalid = F)
+        hot_col('vol', type = 'numeric') %>%
+        hot_cols(columnSorting = TRUE) %>%
+        # check labware max allowed volumes
+        hot_validate_numeric(cols = 3, min = 0, max = maxvol, allowInvalid = T)
     }
   })
   
@@ -498,7 +508,7 @@ server <- function(input, output, session) {
   })
   
   output$deck <- renderUI({
-    HTML('<img src="deck.png" height="600">')
+    HTML('<img src="deck.png" height="auto" width="700px">')
   })
   
   output$pipet_valuebox <- renderUI({
@@ -541,7 +551,7 @@ server <- function(input, output, session) {
     layout_columns(col_widths = c(5,3,3), fillable = T, gap = 1, vbs[1], vbs[2], vbs[3])
     #layout_column_wrap(width = '300px', !!!vbs)
   })
-  # observers
+  
   observeEvent(input$simulate, {
     # clear stdout
     shinyjs::html(id = "stdout", "")
@@ -586,6 +596,8 @@ server <- function(input, output, session) {
     }
     )
   })
+  
+  # Observers
   
   observeEvent(input$myrobot, {
     if (input$myrobot == 'Flex') {
