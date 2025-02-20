@@ -19,9 +19,11 @@ library(processx)
 # call wells_colwise(12, 1) to get columns only
 wells_colwise <- function(cols, rows)
 {
-  l <- lapply(1:cols, function(x) {str_c(LETTERS[1:rows], x)}) %>% unlist()
-  l
-  #factor(l, levels = l)
+  lapply(1:cols, function(x) {str_c(LETTERS[1:rows], x)}) %>% unlist()
+}
+
+wells_rowwise <- function(cols, rows) {
+  lapply(LETTERS[1:rows], function(x) {str_c(x, 1:cols)}) %>% unlist()
 }
 
 # used to generate a plater::view_plate()
@@ -56,12 +58,12 @@ make_plate <- function(cols, rows, content, multi, fullhead) {
 }
 
 # used to generate main table - hot
-make_hot <- function(scols, srows, dcols, drows, s_slice , d_slice ) {
+make_hot <- function(scols, srows, dcols, drows, source_fun, dest_fun) {
   swells <- scols * srows
   dwells <- dcols * drows
   # # fill with NA, let the user decide how to fill shorter labware
-  source_well <- wells_colwise(scols, srows)[s_slice]
-  dest_well <- wells_colwise(dcols, drows)[d_slice]
+  source_well <- source_fun(scols, srows)[]
+  dest_well <- dest_fun(dcols, drows)[]
   
   if (length(source_well) > length(dest_well)) {
     length(dest_well) <- length(source_well) 
@@ -112,18 +114,32 @@ sidebar <- sidebar(
 
 
 panel1 <- list(
-  
-  pickerInput(
-    width = '90%',
-    'source_labware', 'Source labware', 
-    choices = select_labware, selected = 'biorad_96_wellplate_200ul_pcr'
-    #choicesOpt = list(content = labware$img_icon)
-  ),
-  pickerInput(
-    width = '90%',
-    'dest_labware', 'Destination labware', 
-    choices = select_labware, selected = 'biorad_96_wellplate_200ul_pcr'
-    #choicesOpt = list(content = labware$img_icon)
+  fluidRow(
+    column(width = 6,
+      pickerInput(
+      width = '100%',
+      'source_labware', 'Source labware', 
+      choices = select_labware, selected = 'biorad_96_wellplate_200ul_pcr'
+      #choicesOpt = list(content = labware$img_icon)
+      ),
+      radioButtons(
+        'source_fill', 'Fill source', 
+        choices = c('Column-wise' = 'colwise', 'Row-wise' = 'rowwise'), 
+        selected = 'colwise', inline = T
+      )
+    ),
+    column(width = 6, 
+      pickerInput(
+      width = '100%',
+      'dest_labware', 'Destination labware', 
+      choices = select_labware, selected = 'biorad_96_wellplate_200ul_pcr'
+      #choicesOpt = list(content = labware$img_icon)
+      ),
+      radioButtons(
+        'dest_fill', 'Fill destination', 
+        choices = c('Column-wise' = 'colwise', 'Row-wise' = 'rowwise'), 
+        selected = 'colwise', inline = T)
+    )
   ),
   
     #card_header('Pipetting scheme'),
@@ -153,8 +169,8 @@ ui <- page_navbar(
   nav_panel(
     'Labware and volumes', 
     layout_columns(
-      panel1[[1]], panel1[[2]], panel1[[3]], panel1[[4]], 
-      col_widths = c(6, 6, 4, 8))
+      panel1[[1]], panel1[[2]], panel1[[3]], #panel1[[4]], 
+      col_widths = c(12, 4, 8))
     ),
   nav_panel('Protocol preview', verbatimTextOutput('protocol_preview')),
   nav_panel(
@@ -216,7 +232,10 @@ server <- function(input, output, session) {
         case_when(
           input$pipette_type == '8-channel' & selected_dest$nwells == 384 ~ 2,
           input$pipette_type == '8-channel'~ 1,
-          TRUE ~ selected_dest$rows)
+          TRUE ~ selected_dest$rows),
+      # passing functions as arguments
+      source_fun = ifelse(input$source_fill == 'colwise', wells_colwise, wells_rowwise), 
+      dest_fun = ifelse(input$dest_fill == 'colwise', wells_colwise, wells_rowwise)
     )
     if ((selected_src$nwells == 384 | selected_dest$nwells == 384) & input$pipette_type == '96-channel') {
       mytable[c(1,2, 193, 194), ]
