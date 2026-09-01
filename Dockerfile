@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install Opentrons CLI in a virtual environment and symlink opentrons_simulate into PATH
 RUN python3 -m venv /opt/venv && \
-    /opt/venv/bin/pip install --no-cache-dir opentrons && \
+    /opt/venv/bin/pip install --no-cache-dir opentrons==8.8.1 && \
     ln -s /opt/venv/bin/opentrons_simulate /usr/local/bin/opentrons_simulate
 
 WORKDIR /app
