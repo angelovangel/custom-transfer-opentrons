@@ -100,8 +100,9 @@ pipetting <- list(
                    min = 5, max = 100, value = 100, step = 5, 
                    icon = list(NULL, icon("percent"))),
   selectizeInput('newtip', 'New tip', choices = c('always', 'once'), selected = 'always'),
-  numericInput('airgap', 'Air gap', value = 0, min = 0, max = 20, step = 1)
-  
+  numericInput('airgap', 'Air gap', value = 0, min = 0, max = 20, step = 1),
+  checkboxInput('blowout', 'Blow out', value = FALSE),
+  selectizeInput('blowout_loc', 'Blow out location', choices = c('trash', 'source well', 'destination well'), selected = 'trash')
 )
 sidebar <- sidebar(
   accordion(
@@ -385,9 +386,29 @@ server <- function(input, output, session) {
                   replacement = paste0("mafter = (", input$atimes, ",", input$amix_vol, ")")) %>%
       str_replace(pattern = 'agap = .*', 
                   replacement = paste0('agap = ', input$airgap)) %>%
+      str_replace(pattern = 'blowout = .*', 
+                  replacement = paste0('blowout = ', if (isTRUE(input$blowout)) 'True' else 'False')) %>%
+      str_replace(pattern = 'blowout_loc = .*', 
+                  replacement = paste0("blowout_loc = '", input$blowout_loc, "'")) %>%
       str_replace('aspirate_factor = .*', paste0('aspirate_factor = ', round(100/input$aspirate_speed, 2))) %>%
       str_replace('dispense_factor = .*', paste0('dispense_factor = ', round(100/input$dispense_speed, 2)))
     
+  })
+  
+  # blowout location only matters if blowout is on
+  # the API does not allow 'source well' for consolidate or 'destination well' for distribute
+  observe({
+    shinyjs::toggleState('blowout_loc', condition = isTRUE(input$blowout))
+  })
+  
+  observeEvent(input$pipetting_type, {
+    bchoices <- switch(input$pipetting_type,
+      'transfer' = c('trash', 'source well', 'destination well'),
+      'distribute' = c('trash', 'source well'),
+      'consolidate' = c('trash', 'destination well')
+    )
+    selected <- if (isTRUE(input$blowout_loc %in% bchoices)) input$blowout_loc else 'trash'
+    updateSelectizeInput('blowout_loc', choices = bchoices, selected = selected, session = session)
   })
   
   # Outputs

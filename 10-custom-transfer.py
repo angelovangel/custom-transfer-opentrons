@@ -28,6 +28,8 @@ newtip = 'always'
 mbefore = (0,0)
 mafter = (0,0)
 agap = 0
+blowout = False
+blowout_loc = 'trash' # can be 'trash', 'source well', 'destination well'
 aspirate_factor = 2
 dispense_factor = 1
 # len volumes should be == longer list
@@ -38,6 +40,16 @@ dest_wells =   ['A1','A1','C1','C1', 'C1', 'C1']
 volumes = [3, 3, 1, 1, 0, 0]
 
 # End of variables handled by the Shiny app
+
+def blowout_args(command):
+    # blowout_location needs apiLevel >= 2.8 and is only used together with blow_out=True
+    # the API does not allow 'source well' for consolidate or 'destination well' for distribute
+    if not blowout:
+        return {}
+    loc = blowout_loc
+    if (command == 'consolidate' and loc == 'source well') or (command == 'distribute' and loc == 'destination well'):
+        loc = 'trash'
+    return {'blow_out': True, 'blowout_location': loc}
 
 def run(ctx: protocol_api.ProtocolContext):
     ctx.comment('Starting custom transfer protocol: ' + pipetting_type + ' from ' + str(source_wells) + ' to ' + str(dest_wells))
@@ -64,7 +76,8 @@ def run(ctx: protocol_api.ProtocolContext):
             new_tip = newtip, 
             mix_before = mbefore,
             mix_after = mafter, 
-            air_gap = agap
+            air_gap = agap,
+            **blowout_args('transfer')
         )
 
     elif pipetting_type == 'distribute':
@@ -80,7 +93,8 @@ def run(ctx: protocol_api.ProtocolContext):
                 destlist,
                 new_tip = newtip,
                 mix_before = mbefore,
-                air_gap = agap
+                air_gap = agap,
+                **blowout_args('distribute')
             )
 
     elif pipetting_type == 'consolidate':
@@ -96,5 +110,6 @@ def run(ctx: protocol_api.ProtocolContext):
                 dest[v],
                 new_tip = newtip,
                 mix_after = mafter,
-                air_gap = agap
+                air_gap = agap,
+                **blowout_args('consolidate')
             )
